@@ -6,11 +6,46 @@ import '../services/room_service.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class PromptEditorScreen extends ConsumerWidget {
+class PromptEditorScreen extends ConsumerStatefulWidget {
   const PromptEditorScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PromptEditorScreen> createState() => _PromptEditorScreenState();
+}
+
+class _PromptEditorScreenState extends ConsumerState<PromptEditorScreen> {
+  final Map<String, TextEditingController> _displayNameControllers = {};
+  final Map<String, TextEditingController> _systemPromptControllers = {};
+
+  @override
+  void dispose() {
+    for (final controller in _displayNameControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _systemPromptControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _getDisplayNameController(
+      String promptId, String text) {
+    if (!_displayNameControllers.containsKey(promptId)) {
+      _displayNameControllers[promptId] = TextEditingController(text: text);
+    }
+    return _displayNameControllers[promptId]!;
+  }
+
+  TextEditingController _getSystemPromptController(
+      String promptId, String text) {
+    if (!_systemPromptControllers.containsKey(promptId)) {
+      _systemPromptControllers[promptId] = TextEditingController(text: text);
+    }
+    return _systemPromptControllers[promptId]!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final promptsAsync = ref.watch(promptsProvider);
 
     return Scaffold(
@@ -20,7 +55,8 @@ class PromptEditorScreen extends ConsumerWidget {
           return ReorderableListView.builder(
             itemCount: prompts.length,
             onReorder: (oldIndex, newIndex) {
-              // Reorder logic would go here
+              if (newIndex > oldIndex) newIndex--;
+              // TODO: Implement reorder by updating execution_order
             },
             itemBuilder: (context, index) {
               final prompt = prompts[index];
@@ -47,8 +83,8 @@ class PromptEditorScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TextField(
-                          controller:
-                              TextEditingController(text: prompt.displayName),
+                          controller: _getDisplayNameController(
+                              prompt.id, prompt.displayName),
                           decoration:
                               const InputDecoration(labelText: 'Display Name'),
                           onSubmitted: (value) async {
@@ -65,8 +101,8 @@ class PromptEditorScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         TextField(
-                          controller:
-                              TextEditingController(text: prompt.systemPrompt),
+                          controller: _getSystemPromptController(
+                              prompt.id, prompt.systemPrompt),
                           decoration:
                               const InputDecoration(labelText: 'System Prompt'),
                           maxLines: 5,
@@ -95,7 +131,7 @@ class PromptEditorScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Add new prompt logic
+          // TODO: Add new prompt logic
         },
         child: const Icon(Icons.add),
       ),

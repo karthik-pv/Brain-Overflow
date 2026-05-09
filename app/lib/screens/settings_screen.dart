@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive/hive.dart';
@@ -43,6 +44,7 @@ class SettingsScreen extends ConsumerWidget {
                     trailing: IconButton(
                       icon: const Icon(Icons.copy),
                       onPressed: () {
+                        Clipboard.setData(ClipboardData(text: accessCode));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Copied to clipboard')),
                         );
