@@ -116,9 +116,9 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: _isListening
-                              ? Colors.red.withOpacity(
-                                  0.3 + _pulseController.value * 0.3)
-                              : Colors.grey.withOpacity(0.3),
+                              ? Colors.red.withValues(
+                                  alpha: 0.3 + _pulseController.value * 0.3)
+                              : Colors.grey.withValues(alpha: 0.3),
                         ),
                         child: Icon(
                           _isListening ? Icons.mic : Icons.mic_none,
