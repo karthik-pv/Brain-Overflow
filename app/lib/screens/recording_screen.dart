@@ -7,6 +7,7 @@ import 'package:hive/hive.dart';
 import '../services/speech_service.dart';
 import '../services/idea_service.dart';
 import '../services/room_service.dart';
+import '../services/offline_queue_service.dart';
 
 class RecordingScreen extends ConsumerStatefulWidget {
   const RecordingScreen({super.key});
@@ -66,7 +67,9 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
     try {
       final client = Supabase.instance.client;
       final roomService = RoomService(client, Hive.box('room'));
-      final ideaService = IdeaService(client, roomService);
+      final offlineQueue = OfflineQueueService();
+      await offlineQueue.init();
+      final ideaService = IdeaService(client, roomService, offlineQueue);
       await ideaService.createIdea(_transcript.toString());
       if (mounted) context.pop();
     } catch (e) {
