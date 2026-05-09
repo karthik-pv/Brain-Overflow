@@ -5,6 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../providers/ideas_list_provider.dart';
 import '../widgets/idea_card.dart';
+import '../widgets/filter_chips.dart';
 import '../utils/colors.dart';
 import '../models/pending_idea.dart';
 
@@ -65,15 +66,47 @@ class HomeScreen extends ConsumerWidget {
               child: Text('No ideas yet. Tap the mic to record one!'),
             );
           }
-          return ListView.builder(
-            itemCount: ideas.length,
-            itemBuilder: (context, index) {
-              final idea = ideas[index];
-              return InkWell(
-                onTap: () => context.push('/idea/${idea.id}'),
-                child: IdeaCard(idea: idea),
-              );
-            },
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  children: [
+                    FilterChips(
+                      options: const [
+                        'Startup',
+                        'Developer Tool',
+                        'Fun Project'
+                      ],
+                      selected: null,
+                      onSelected: (category) {
+                        // Filter logic would update the provider
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    FilterChips(
+                      options: const ['Good Idea', 'Weak', 'Needs Pivot'],
+                      selected: null,
+                      onSelected: (score) {
+                        // Filter logic would update the provider
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: ideas.length,
+                  itemBuilder: (context, index) {
+                    final idea = ideas[index];
+                    return InkWell(
+                      onTap: () => context.push('/idea/${idea.id}'),
+                      child: IdeaCard(idea: idea),
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
