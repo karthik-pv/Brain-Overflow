@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive/hive.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../providers/ideas_list_provider.dart';
 import '../widgets/idea_card.dart';
+import '../utils/colors.dart';
+import '../models/pending_idea.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -16,7 +19,38 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(roomName),
+        title: Row(
+          children: [
+            Text(roomName),
+            const SizedBox(width: 8),
+            StreamBuilder<List<ConnectivityResult>>(
+              stream: Connectivity().onConnectivityChanged,
+              builder: (context, snapshot) {
+                final results = snapshot.data ?? [ConnectivityResult.none];
+                final isOnline =
+                    results.any((r) => r != ConnectivityResult.none);
+                Color dotColor;
+                if (!isOnline) {
+                  dotColor = AppColors.connError;
+                } else {
+                  final pendingCount =
+                      Hive.box<PendingIdea>('pending_ideas').length;
+                  dotColor = pendingCount > 0
+                      ? AppColors.connPending
+                      : AppColors.connOnline;
+                }
+                return Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
