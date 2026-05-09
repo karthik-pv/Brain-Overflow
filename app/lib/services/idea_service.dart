@@ -2,12 +2,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/idea.dart';
 import 'room_service.dart';
+import 'offline_queue_service.dart';
 
 class IdeaService {
   final SupabaseClient _client;
   final RoomService _roomService;
+  final OfflineQueueService _offline;
 
-  IdeaService(this._client, this._roomService);
+  IdeaService(this._client, this._roomService, this._offline);
 
   Future<String> createIdea(String transcript) async {
     final roomId = _roomService.roomId!;
@@ -23,7 +25,13 @@ class IdeaService {
       );
       return ideaId;
     } catch (e) {
-      rethrow;
+      await _offline.enqueue(
+        ideaId: ideaId,
+        transcript: transcript,
+        authorName: author,
+        roomId: roomId,
+      );
+      return ideaId;
     }
   }
 
