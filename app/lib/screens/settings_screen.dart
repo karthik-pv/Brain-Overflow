@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hive/hive.dart';
 import '../providers/models_provider.dart';
 import '../services/model_service.dart';
-import '../services/room_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsScreen extends ConsumerWidget {
