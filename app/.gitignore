@@ -32,6 +32,7 @@ ios/Runner.xcworkspace/xcuserdata/
 
 # Android
 android/.gradle/
+android/build/
 android/app/debug/
 android/app/profile/
 android/app/release/
@@ -77,6 +78,9 @@ coverage/
 *~
 .DS_Store
 Thumbs.db
+
+# Project specific
+README.md
 
 # Environment/config files (NEVER commit these)
 .env
