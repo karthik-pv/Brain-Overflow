@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive/hive.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/chat_messages_provider.dart';
 import '../providers/idea_detail_provider.dart';
+import '../services/chat_service.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/typing_indicator.dart';
 import '../widgets/score_badge.dart';
@@ -18,12 +21,45 @@ class IdeaDetailScreen extends ConsumerStatefulWidget {
 
 class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   final _scrollController = ScrollController();
+  final _inputController = TextEditingController();
   bool _headerExpanded = true;
+  bool _sending = false;
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _inputController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _inputController.text.trim();
+    if (text.isEmpty) return;
+    _inputController.clear();
+    setState(() => _sending = true);
+
+    try {
+      final roomId = Hive.box('room').get('roomId') as String?;
+      if (roomId == null) return;
+
+      final messages =
+          ref.read(chatMessagesProvider(widget.ideaId)).valueOrNull ?? [];
+      final chatService = ChatService(Supabase.instance.client);
+      await chatService.sendUserMessage(
+        ideaId: widget.ideaId,
+        roomId: roomId,
+        content: text,
+        history: messages,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send: $e')),
+        );
+      }
+    } finally {
+      setState(() => _sending = false);
+    }
   }
 
   void _scrollToBottom() {
@@ -128,7 +164,57 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
               error: (err, stack) => Center(child: Text('Error: $err')),
             ),
           ),
-          const TypingIndicator(),
+          // Typing indicator
+          messagesAsync.when(
+            data: (messages) {
+              if (messages.isEmpty) return const SizedBox.shrink();
+              final lastMessage = messages.last;
+              final isProcessing = lastMessage.role == 'user';
+              return isProcessing
+                  ? const TypingIndicator()
+                  : const SizedBox.shrink();
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+          // Message input bar
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _inputController,
+                      decoration: const InputDecoration(
+                        hintText: 'Type a reply...',
+                        border: OutlineInputBorder(),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: _sending
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
+                    onPressed: _sending ? null : _sendMessage,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
