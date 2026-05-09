@@ -64,12 +64,28 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen>
     if (_transcript.isEmpty) return;
     setState(() => _saving = true);
 
+    final roomBox = Hive.box('room');
+    final roomId = roomBox.get('roomId') as String?;
+    final authorName = roomBox.get('authorName') as String?;
+
+    if (roomId == null || authorName == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Cannot save: missing room data. Please rejoin the room.'),
+          ),
+        );
+      }
+      setState(() => _saving = false);
+      return;
+    }
+
     try {
       final client = Supabase.instance.client;
-      final roomService = RoomService(client, Hive.box('room'));
-      final offlineQueue = OfflineQueueService();
-      await offlineQueue.init();
-      final ideaService = IdeaService(client, roomService, offlineQueue);
+      final roomService = RoomService(client, roomBox);
+      final ideaService =
+          IdeaService(client, roomService, OfflineQueueService());
       await ideaService.createIdea(_transcript.toString());
       if (mounted) context.pop();
     } catch (e) {

@@ -3,10 +3,22 @@ import '../models/pending_idea.dart';
 import 'idea_service.dart';
 
 class OfflineQueueService {
-  late Box<PendingIdea> _box;
+  static final OfflineQueueService _instance = OfflineQueueService._internal();
+  factory OfflineQueueService() => _instance;
+  OfflineQueueService._internal();
+
+  Box<PendingIdea>? _box;
 
   Future<void> init() async {
-    _box = Hive.box<PendingIdea>('pending_ideas');
+    _box ??= Hive.box<PendingIdea>('pending_ideas');
+  }
+
+  Box<PendingIdea> get _boxSync {
+    if (_box == null) {
+      throw StateError(
+          'OfflineQueueService not initialized. Call init() first.');
+    }
+    return _box!;
   }
 
   Future<void> enqueue({
@@ -15,7 +27,7 @@ class OfflineQueueService {
     required String authorName,
     required String roomId,
   }) async {
-    await _box.put(
+    await _boxSync.put(
       ideaId,
       PendingIdea(
         id: ideaId,
@@ -27,7 +39,7 @@ class OfflineQueueService {
     );
   }
 
-  List<PendingIdea> get pending => _box.values.toList();
+  List<PendingIdea> get pending => _boxSync.values.toList();
 
   Future<void> syncAll(IdeaService ideaService) async {
     for (final item in List.of(pending)) {
@@ -38,7 +50,7 @@ class OfflineQueueService {
           author: item.authorName,
           transcript: item.transcript,
         );
-        await _box.delete(item.id);
+        await _boxSync.delete(item.id);
       } catch (_) {
         // Leave in queue for next connectivity event
       }

@@ -12,7 +12,6 @@ part 'ideas_list_provider.g.dart';
 Stream<List<Idea>> ideasList(IdeasListRef ref) {
   final client = Supabase.instance.client;
   final roomService = RoomService(client, Hive.box('room'));
-  final offlineQueue = OfflineQueueService();
-  final ideaService = IdeaService(client, roomService, offlineQueue);
+  final ideaService = IdeaService(client, roomService, OfflineQueueService());
   return ideaService.watchIdeas();
 }

@@ -24,6 +24,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   final _inputController = TextEditingController();
   bool _headerExpanded = true;
   bool _sending = false;
+  int _previousMessageCount = 0;
 
   @override
   void dispose() {
@@ -35,13 +36,21 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
+
+    final roomId = Hive.box('room').get('roomId') as String?;
+    if (roomId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cannot send: missing room data')),
+        );
+      }
+      return;
+    }
+
     _inputController.clear();
     setState(() => _sending = true);
 
     try {
-      final roomId = Hive.box('room').get('roomId') as String?;
-      if (roomId == null) return;
-
       final messages =
           ref.read(chatMessagesProvider(widget.ideaId)).valueOrNull ?? [];
       final chatService = ChatService(Supabase.instance.client);
@@ -150,8 +159,11 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
           Expanded(
             child: messagesAsync.when(
               data: (messages) {
-                WidgetsBinding.instance
-                    .addPostFrameCallback((_) => _scrollToBottom());
+                if (messages.length > _previousMessageCount) {
+                  _previousMessageCount = messages.length;
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => _scrollToBottom());
+                }
                 return ListView.builder(
                   controller: _scrollController,
                   itemCount: messages.length,
