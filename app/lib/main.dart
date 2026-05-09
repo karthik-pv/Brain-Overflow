@@ -25,10 +25,14 @@ void main() async {
       .listen((List<ConnectivityResult> results) {
     final isOnline = results.any((r) => r != ConnectivityResult.none);
     if (isOnline && offlineQueue.pending.isNotEmpty) {
-      final client = Supabase.instance.client;
-      final roomService = RoomService(client, Hive.box('room'));
-      final ideaService = IdeaService(client, roomService, offlineQueue);
-      offlineQueue.syncAll(ideaService);
+      try {
+        final client = Supabase.instance.client;
+        final roomService = RoomService(client, Hive.box('room'));
+        final ideaService = IdeaService(client, roomService, offlineQueue);
+        offlineQueue.syncAll(ideaService);
+      } catch (_) {
+        // Supabase not initialized yet, will retry on next connectivity event
+      }
     }
   });
 
