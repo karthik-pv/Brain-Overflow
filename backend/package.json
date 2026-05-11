@@ -1,0 +1,16 @@
+{
+  "name": "brain-overflow-idea-logger",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "setup":                   "node scripts/setup.mjs",
+    "reset":                   "node scripts/reset.mjs",
+    "verify":                  "node scripts/verify.mjs",
+    "seed":                    "node scripts/seed.mjs",
+    "sync-telegram-commands":  "node scripts/sync-telegram-commands.mjs",
+    "dev":                     "cd react-app && npm run dev"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4"
+  }
+}
