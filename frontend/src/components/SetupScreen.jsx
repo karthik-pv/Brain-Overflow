@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, Link, Key, ArrowRight, Warning } from '@phosphor-icons/react'
 import { createClient } from '@supabase/supabase-js'
 

@@ -8,7 +8,7 @@
     "verify":                  "node scripts/verify.mjs",
     "seed":                    "node scripts/seed.mjs",
     "sync-telegram-commands":  "node scripts/sync-telegram-commands.mjs",
-    "dev":                     "cd react-app && npm run dev"
+    "dev":                     "cd ../frontend && npm run dev"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4"
