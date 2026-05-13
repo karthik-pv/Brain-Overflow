@@ -5,14 +5,21 @@ export function useSpeechRecognition() {
   const [interimTranscript, setInterimTranscript] = useState('')
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
+  const transcriptRef = useRef('')
   const interimRef = useRef('')
+  const stopResolveRef = useRef(null)
 
   const start = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
-      console.error('Speech recognition not supported')
+      console.error('Speech recognition not supported in this browser')
       return false
     }
+
+    transcriptRef.current = ''
+    interimRef.current = ''
+    setTranscript('')
+    setInterimTranscript('')
 
     const recognition = new SpeechRecognition()
     recognition.continuous = true
@@ -25,70 +32,101 @@ export function useSpeechRecognition() {
     }
 
     recognition.onresult = (event) => {
-      let final = ''
-      let interim = ''
+      let finalChunk = ''
+      let interimChunk = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
-          final += result[0].transcript + ' '
+          finalChunk += result[0].transcript + ' '
         } else {
-          interim += result[0].transcript
+          interimChunk += result[0].transcript
         }
       }
-      if (final) {
-        setTranscript(prev => prev + final)
+
+      if (finalChunk) {
+        transcriptRef.current += finalChunk
+        setTranscript(transcriptRef.current)
       }
-      setInterimTranscript(interim)
-      interimRef.current = interim
+
+      interimRef.current = interimChunk
+      setInterimTranscript(interimChunk)
     }
 
     recognition.onerror = (event) => {
-      if (event.error === 'no-speech') return
+      if (event.error === 'no-speech' || event.error === 'aborted') return
       console.error('Speech recognition error:', event.error)
-      setIsListening(false)
     }
 
     recognition.onend = () => {
       setIsListening(false)
-      // NOTE: We intentionally do NOT clear interim here.
-      // The stop() function will append it to the final transcript.
+
+      const remainingInterim = interimRef.current.trim()
+      if (remainingInterim) {
+        transcriptRef.current = (transcriptRef.current + ' ' + remainingInterim).trim()
+        interimRef.current = ''
+      }
+
+      setTranscript(transcriptRef.current)
+      setInterimTranscript('')
+
+      if (stopResolveRef.current) {
+        stopResolveRef.current(transcriptRef.current)
+        stopResolveRef.current = null
+      }
     }
 
     recognitionRef.current = recognition
-    recognition.start()
-    return true
+
+    try {
+      recognition.start()
+      return true
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err)
+      return false
+    }
   }, [])
 
   const stop = useCallback(() => {
-    // CRITICAL FIX: Append any remaining interim transcript to final
-    // before stopping, so we don't lose the last words spoken.
-    const remainingInterim = interimRef.current.trim()
-    if (remainingInterim) {
-      setTranscript(prev => {
-        const combined = (prev + ' ' + remainingInterim).trim()
-        return combined
+    if (recognitionRef.current) {
+      return new Promise((resolve) => {
+        stopResolveRef.current = resolve
+        try {
+          recognitionRef.current.stop()
+        } catch (e) {
+          stopResolveRef.current = null
+          const remainingInterim = interimRef.current.trim()
+          if (remainingInterim) {
+            transcriptRef.current = (transcriptRef.current + ' ' + remainingInterim).trim()
+            interimRef.current = ''
+          }
+          resolve(transcriptRef.current)
+        }
+        recognitionRef.current = null
       })
-      interimRef.current = ''
-      setInterimTranscript('')
     }
 
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-      recognitionRef.current = null
+    const remainingInterim = interimRef.current.trim()
+    if (remainingInterim) {
+      transcriptRef.current = (transcriptRef.current + ' ' + remainingInterim).trim()
+      interimRef.current = ''
     }
+    setTranscript(transcriptRef.current)
+    setInterimTranscript('')
     setIsListening(false)
+    return Promise.resolve(transcriptRef.current)
   }, [])
 
   const reset = useCallback(() => {
+    transcriptRef.current = ''
+    interimRef.current = ''
     setTranscript('')
     setInterimTranscript('')
-    interimRef.current = ''
   }, [])
 
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop()
+        try { recognitionRef.current.stop() } catch (e) { }
       }
     }
   }, [])

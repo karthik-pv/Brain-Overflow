@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Microphone, Stop, PaperPlaneRight, Spinner, Warning, Keyboard } from '@phosphor-icons/react'
 import ParticleCanvas from './ParticleCanvas'
@@ -21,25 +21,18 @@ export default function VoiceRecorder({ onIdeaCreated }) {
   const [editableTranscript, setEditableTranscript] = useState('')
   const [showManualInput, setShowManualInput] = useState(false)
   const [manualText, setManualText] = useState('')
-  
+
   const { start: startAudio, stop: stopAudio } = useAudioVisualizer()
-  const { 
-    transcript, 
-    interimTranscript, 
-    isListening, 
-    start: startSpeech, 
-    stop: stopSpeech, 
-    reset: resetSpeech 
+  const {
+    transcript,
+    interimTranscript,
+    isListening,
+    start: startSpeech,
+    stop: stopSpeech,
+    reset: resetSpeech
   } = useSpeechRecognition()
-  
-  // Use ref to avoid stale closure
-  const transcriptRef = useRef('')
+
   const fullTranscript = transcript + interimTranscript
-  
-  // Keep ref in sync
-  useEffect(() => {
-    transcriptRef.current = fullTranscript
-  }, [fullTranscript])
 
   const handleStart = useCallback(async () => {
     setError('')
@@ -68,16 +61,14 @@ export default function VoiceRecorder({ onIdeaCreated }) {
     }
   }, [startAudio, startSpeech, resetSpeech, stopAudio])
 
-  const handleStop = useCallback(() => {
+  const handleStop = useCallback(async () => {
     stopAudio()
-    stopSpeech()
+    const capturedTranscript = (await stopSpeech()).trim()
     setFrequencyData(null)
-    
-    // Use ref to get latest transcript (avoids stale closure)
-    const capturedTranscript = transcriptRef.current.trim()
+
     setEditableTranscript(capturedTranscript)
     setState(STATES.IDLE)
-    
+
     if (!capturedTranscript) {
       setShowManualInput(true)
     }
@@ -189,13 +180,12 @@ export default function VoiceRecorder({ onIdeaCreated }) {
 
           {/* Center Record Button - Always visible, positioned in center */}
           <motion.button
-            className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-              isListeningState
+            className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${isListeningState
                 ? 'bg-[rgba(255,71,87,0.2)] border-2 border-[#ff4757] shadow-[0_0_30px_rgba(255,71,87,0.3)]'
                 : isProcessing
-                ? 'bg-[rgba(0,212,255,0.1)] border-2 border-[rgba(0,212,255,0.3)]'
-                : 'bg-[rgba(0,212,255,0.15)] border-2 border-[rgba(0,212,255,0.3)] hover:bg-[rgba(0,212,255,0.25)] hover:border-[rgba(0,212,255,0.5)] hover:shadow-[0_0_30px_rgba(0,212,255,0.2)]'
-            }`}
+                  ? 'bg-[rgba(0,212,255,0.1)] border-2 border-[rgba(0,212,255,0.3)]'
+                  : 'bg-[rgba(0,212,255,0.15)] border-2 border-[rgba(0,212,255,0.3)] hover:bg-[rgba(0,212,255,0.25)] hover:border-[rgba(0,212,255,0.5)] hover:shadow-[0_0_30px_rgba(0,212,255,0.2)]'
+              }`}
             whileHover={!isProcessing ? { scale: 1.08 } : {}}
             whileTap={!isProcessing ? { scale: 0.92 } : {}}
             onClick={isListeningState ? handleStop : isProcessing ? undefined : handleStart}
@@ -346,7 +336,7 @@ export default function VoiceRecorder({ onIdeaCreated }) {
           className="mt-8 text-center max-w-md"
         >
           <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-dim)' }}>
-            Speak naturally about your startup idea. Our AI will analyze it using the Paul Graham framework — 
+            Speak naturally about your startup idea. Our AI will analyze it using the Paul Graham framework —
             evaluating market need, competition, and feasibility.
           </p>
         </motion.div>
