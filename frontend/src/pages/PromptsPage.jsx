@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '../lib/supabase.js'
 
-const BLANK = { prompt_name: '', prompt: '' }
+const BLANK = { prompt_name: '', prompt: '', multi_turn: false }
 
 export default function PromptsPage() {
   const [prompts, setPrompts] = useState([])
@@ -24,10 +24,10 @@ export default function PromptsPage() {
     setErr('')
     const sb = getSupabase()
     if (form.id) {
-      const { error } = await sb.from('prompts').update({ prompt_name: form.prompt_name, prompt: form.prompt }).eq('id', form.id)
+      const { error } = await sb.from('prompts').update({ prompt_name: form.prompt_name, prompt: form.prompt, multi_turn: form.multi_turn }).eq('id', form.id)
       if (error) { setErr(error.message); setBusy(false); return }
     } else {
-      const { error } = await sb.from('prompts').insert({ prompt_name: form.prompt_name, prompt: form.prompt })
+      const { error } = await sb.from('prompts').insert({ prompt_name: form.prompt_name, prompt: form.prompt, multi_turn: form.multi_turn })
       if (error) { setErr(error.message); setBusy(false); return }
     }
     setForm(null)
@@ -72,6 +72,18 @@ export default function PromptsPage() {
               placeholder="You are an expert evaluator. Analyze the following idea and provide a detailed assessment..."
             />
           </div>
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <label className="form-label" style={{ marginBottom: 0 }}>Multi-Turn Context</label>
+            <input
+              type="checkbox"
+              checked={form.multi_turn || false}
+              onChange={e => setForm(f => ({ ...f, multi_turn: e.target.checked }))}
+              style={{ width: 16, height: 16, cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+              {form.multi_turn ? 'Sends all prior prompts and responses.' : 'Single response: sends only the previous response.'}
+            </span>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>
             <button className="btn" onClick={() => { setForm(null); setErr('') }}>Cancel</button>
@@ -88,7 +100,9 @@ export default function PromptsPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.prompt_name}</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>ID: {p.id}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                ID: {p.id} &bull; Mode: {p.multi_turn ? 'Multi-turn' : 'Single response'}
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-sm" onClick={() => { setForm({ ...p }); setErr('') }}>Edit</button>

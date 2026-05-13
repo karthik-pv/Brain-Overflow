@@ -22,14 +22,14 @@ function loadEnv() {
 loadEnv()
 
 // ── Validate required env vars ───────────────────────────────────────────────
-const REQUIRED = ['SUPABASE_PROJECT_REF','SUPABASE_URL','SUPABASE_SECRET_KEY','SUPABASE_PUBLISHABLE_KEY','TELEGRAM_BOT_TOKEN','AI_API_KEY']
+const REQUIRED = ['SUPABASE_PROJECT_REF','SUPABASE_URL','SUPABASE_SECRET_KEY','SUPABASE_PUBLISHABLE_KEY','TELEGRAM_BOT_TOKEN','AI_API_KEY','TELEGRAM_ALLOWED_USERS']
 const missing  = REQUIRED.filter(k => !process.env[k])
 if (missing.length) {
   console.error(`ERROR: Missing env vars: ${missing.join(', ')}`)
   process.exit(1)
 }
 
-const { SUPABASE_PROJECT_REF, SUPABASE_URL, SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, AI_API_KEY } = process.env
+const { SUPABASE_PROJECT_REF, SUPABASE_URL, SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, AI_API_KEY, TELEGRAM_ALLOWED_USERS } = process.env
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function run(cmd, label) {
@@ -74,6 +74,7 @@ run('npx supabase functions deploy process-prompt   --no-verify-jwt', '4/8 Deplo
 // 5. Set secrets in Supabase
 run(`npx supabase secrets set AI_API_KEY=${AI_API_KEY}`, '5/8 Set AI_API_KEY secret')
 run(`npx supabase secrets set TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}`, '5/8 Set TELEGRAM_BOT_TOKEN secret')
+run(`npx supabase secrets set TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}`, '5/8 Set TELEGRAM_ALLOWED_USERS secret')
 
 // 6. Configure Telegram webhook
 console.log('\n[6/8 Configure Telegram webhook]')

@@ -32,13 +32,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const chatId    = String(message.chat?.id   ?? '')
   const messageId = String(message.message_id ?? '')
   const rawText   = (message.text ?? '').trim()
+  const userId    = String(message.from?.id   ?? '')
 
   if (!rawText || !chatId) return jsonResponse({ ok: true })
+
+  const token = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? ''
+
+  // Authorization check
+  const allowedUsersStr = Deno.env.get('TELEGRAM_ALLOWED_USERS') || '[]'
+  let isAllowed = false
+  try {
+    const allowedUsers = JSON.parse(allowedUsersStr)
+    if (Array.isArray(allowedUsers)) {
+      isAllowed = allowedUsers.map(String).includes(userId)
+    }
+  } catch (_e) {
+    // Ignore parse error
+  }
+
+  if (!isAllowed) {
+    log({ fn: FN, chatId, userId }, 'Unauthorized user attempted to use the bot')
+    await sendTelegramMessage(token, chatId, 'Unauthorized')
+    return jsonResponse({ ok: true })
+  }
 
   log({ fn: FN, chatId, messageId }, 'Received Telegram message')
 
   const supabase = createServiceClient()
-  const token    = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? ''
 
   try {
     // ── Management commands (respond and return immediately) ───────────────
@@ -97,6 +117,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (!flowId) {
       log({ fn: FN, ideaId }, 'No flow found — idea stored without processing')
+      await sendTelegramMessage(token, chatId, 'Idea captured.')
       return jsonResponse({ ok: true })
     }
 
@@ -120,6 +141,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(chain)
 
     log({ fn: FN, ideaId }, 'Idea logged, process-prompt(0) fired')
+    await sendTelegramMessage(token, chatId, 'Idea captured. Processing started...')
   } catch (err) {
     logError({ fn: FN }, err, 'Webhook handler threw')
   }

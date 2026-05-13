@@ -107,7 +107,7 @@ async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
   const promptId = promptIds[prompt_index]
   const { data: prompt, error: promptErr } = await supabase
     .from('prompts')
-    .select('id, prompt_name, prompt')
+    .select('id, prompt_name, prompt, multi_turn')
     .eq('id', promptId)
     .single()
 
@@ -115,16 +115,29 @@ async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
 
   log(ctx, `Running prompt '${prompt.prompt_name}' (${prompt_index + 1}/${promptIds.length})`)
 
-  // 4. Load all prior chat_messages for accumulated context
-  const { data: priorMessages } = await supabase
+  // 4. Load all prior chat_messages
+  const { data: allMessages } = await supabase
     .from('chat_messages')
     .select('role, message, sequence_number')
     .eq('idea_id', idea_id)
     .order('sequence_number', { ascending: true })
+    
+  let contextMessages = allMessages ?? []
+  
+  if (!prompt.multi_turn) {
+    if (contextMessages.length <= 1) {
+      // First prompt: just the idea
+      contextMessages = contextMessages.filter(m => m.sequence_number === 1)
+    } else {
+      // Single response: only the response of the previous prompt (the last assistant message)
+      const lastAssistantResponse = contextMessages.slice().reverse().find(m => m.role === 'assistant')
+      contextMessages = lastAssistantResponse ? [lastAssistantResponse] : []
+    }
+  }
 
   // 5. Build LLM messages array
   //    DB roles:  user → user, system (stored prompt) → user, assistant → assistant
-  const llmMessages: fireworks.Message[] = (priorMessages ?? []).map(m => ({
+  const llmMessages: fireworks.Message[] = contextMessages.map(m => ({
     role:    (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
     content: m.message,
   }))
@@ -197,8 +210,8 @@ async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
   if (!succeeded) {
     // Store raw response and mark failed so the chain is debuggable
     await supabase.from('chat_messages').insert([
-      { idea_id, message: prompt.prompt,  role: 'system',    prompt_id: prompt.id, sequence_number: nextSeq(priorMessages) },
-      { idea_id, message: rawContent,     role: 'assistant', prompt_id: prompt.id, sequence_number: nextSeq(priorMessages) + 1 },
+      { idea_id, message: prompt.prompt,  role: 'system',    prompt_id: prompt.id, sequence_number: nextSeq(allMessages) },
+      { idea_id, message: rawContent,     role: 'assistant', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
     ])
     await supabase.from('ideas').update({ status: 'failed' }).eq('id', idea_id)
     throw new Error('Failed to get valid JSON after 3 attempts')
@@ -206,7 +219,7 @@ async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
 
   // 8. Store prompt (role='system') + response (role='assistant')
   //    AFTER storing → trigger next (ensures context is in DB before next call)
-  const seqBase = nextSeq(priorMessages)
+  const seqBase = nextSeq(allMessages)
   const { error: insertErr } = await supabase.from('chat_messages').insert([
     {
       idea_id,

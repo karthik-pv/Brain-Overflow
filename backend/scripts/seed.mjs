@@ -77,18 +77,21 @@ async function seed() {
       prompt_name: 'Step 1: Initial Categorization & Roast',
       prompt: `You are a blunt, highly critical startup advisor.
 Analyze the user's idea. Point out the biggest immediate flaw or assumption.
-Be concise.`
+Be concise.`,
+      multi_turn: false
     },
     {
       prompt_name: 'Step 2: Market & Competitor Analysis',
       prompt: `You are a market researcher.
 Based on the original idea and the previous critique, list 2-3 potential real-world competitors or existing solutions.
-Explain why this idea might struggle against them, or what unique angle it needs to win.`
+Explain why this idea might struggle against them, or what unique angle it needs to win.`,
+      multi_turn: true
     },
     {
       prompt_name: 'Step 3: Actionable Next Steps',
       prompt: `You are a pragmatic product manager.
-Given the full context of the idea, the critique, and the market analysis, provide exactly 3 concrete, low-cost next steps the user should take to validate this idea THIS WEEK.`
+Given the full context of the idea, the critique, and the market analysis, provide exactly 3 concrete, low-cost next steps the user should take to validate this idea THIS WEEK.`,
+      multi_turn: true
     }
   ]
 
@@ -105,7 +108,8 @@ Given the full context of the idea, the critique, and the market analysis, provi
         promptIds[p.prompt_name] = data.id
       }
     } else {
-      console.log(`  - Prompt ${p.prompt_name} already exists`)
+      await sb.from('prompts').update({ multi_turn: p.multi_turn }).eq('id', existing.id)
+      console.log(`  - Prompt ${p.prompt_name} already exists (updated multi_turn)`)
       promptIds[p.prompt_name] = existing.id
     }
   }
