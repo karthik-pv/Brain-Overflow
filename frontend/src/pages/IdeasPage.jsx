@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowClockwise, Trash, Funnel, SortAscending,
   Lightning, CheckCircle, XCircle, Clock, Circle,
-  TrendUp, TrendDown, ArrowsClockwise
+  TrendUp, TrendDown, ArrowsClockwise, MagnifyingGlass
 } from '@phosphor-icons/react'
 import { getSupabase } from '../lib/supabase.js'
 
@@ -46,6 +46,7 @@ export default function IdeasPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterScore, setFilterScore] = useState('all')
   const [sortBy, setSortBy] = useState('created_at')
+  const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
 
   const fetchIdeas = useCallback(async () => {
@@ -95,6 +96,7 @@ export default function IdeasPage() {
     .filter(idea => {
       if (filterStatus !== 'all' && idea.status !== filterStatus) return false
       if (filterScore !== 'all' && idea.score !== filterScore) return false
+      if (searchQuery && !idea.idea.toLowerCase().includes(searchQuery.toLowerCase())) return false
       return true
     })
     .sort((a, b) => {
@@ -143,16 +145,16 @@ export default function IdeasPage() {
     >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-1">Ideas Dashboard</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">Ideas Dashboard</h1>
             <p className="text-sm font-mono" style={{ color: 'var(--color-text-muted)' }}>
-              {stats.total} ideas · {stats.processing} processing · {stats.completed} completed
+              {stats.total} ideas · {stats.processing} processing · {stats.completed} completed · {stats.strong} strong
             </p>
           </div>
           <button
             onClick={fetchIdeas}
-            className="flex items-center gap-2 px-4 py-2 rounded-full liquid-glass text-sm hover:border-[rgba(0,212,255,0.2)] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full liquid-glass text-sm hover:border-[rgba(0,212,255,0.2)] transition-colors self-start"
           >
             <ArrowClockwise className="w-4 h-4" />
             Refresh
@@ -187,47 +189,61 @@ export default function IdeasPage() {
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <div className="flex items-center gap-2">
-            <Funnel className="w-4 h-4 text-[var(--color-text-muted)]" />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-transparent border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm focus:border-[#00d4ff] outline-none"
-            >
-              <option value="all">All Status</option>
-              <option value="recorded">Recorded</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
+        {/* Filters & Search */}
+        <div className="flex flex-col md:flex-row flex-wrap items-start md:items-center gap-3 mb-6">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-dim)]" />
+              <input
+                type="text"
+                placeholder="Search ideas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] rounded-lg pl-9 pr-3 py-2 text-sm focus:border-[#00d4ff] outline-none transition-colors w-48"
+              />
+            </div>
 
-          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Funnel className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-dim)]" />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] rounded-lg pl-9 pr-8 py-2 text-sm focus:border-[#00d4ff] outline-none transition-colors appearance-none cursor-pointer"
+                style={{ color: filterStatus !== 'all' ? '#00d4ff' : 'var(--color-text-muted)' }}
+              >
+                <option value="all" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>All Status</option>
+                <option value="recorded" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Recorded</option>
+                <option value="processing" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Processing</option>
+                <option value="completed" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Completed</option>
+                <option value="failed" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Failed</option>
+              </select>
+            </div>
+
             <select
               value={filterScore}
               onChange={(e) => setFilterScore(e.target.value)}
-              className="bg-transparent border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm focus:border-[#00d4ff] outline-none"
+              className="bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm focus:border-[#00d4ff] outline-none transition-colors appearance-none cursor-pointer"
+              style={{ color: filterScore !== 'all' ? '#00d4ff' : 'var(--color-text-muted)' }}
             >
-              <option value="all">All Scores</option>
-              <option value="strong">Strong</option>
-              <option value="needs_refinement">Needs Refinement</option>
-              <option value="needs_pivot">Needs Pivot</option>
-              <option value="weak">Weak</option>
+              <option value="all" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>All Scores</option>
+              <option value="strong" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Strong</option>
+              <option value="needs_refinement" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Needs Refinement</option>
+              <option value="needs_pivot" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Needs Pivot</option>
+              <option value="weak" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Weak</option>
             </select>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <SortAscending className="w-4 h-4 text-[var(--color-text-muted)]" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm focus:border-[#00d4ff] outline-none"
-            >
-              <option value="created_at">Newest First</option>
-              <option value="score">By Score</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <SortAscending className="w-4 h-4 text-[var(--color-text-muted)]" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm focus:border-[#00d4ff] outline-none transition-colors appearance-none cursor-pointer"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                <option value="created_at" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Newest First</option>
+                <option value="score" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>By Score</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -272,7 +288,7 @@ export default function IdeasPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: index * 0.05, type: 'spring', stiffness: 100, damping: 20 }}
+                    transition={{ delay: Math.min(index * 0.03, 0.3), type: 'spring', stiffness: 100, damping: 20 }}
                     onClick={() => navigate(`/idea/${idea.id}`)}
                     className="liquid-glass rounded-xl p-5 cursor-pointer hover:border-[rgba(0,212,255,0.2)] transition-all duration-300 group"
                   >
@@ -281,16 +297,16 @@ export default function IdeasPage() {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <span className={`text-xs font-mono uppercase px-2 py-1 rounded ${statusConfig.bg} ${statusConfig.color}`}>
+                      <span className={`text-xs font-mono uppercase px-2.5 py-1 rounded ${statusConfig.bg} ${statusConfig.color}`}>
                         {statusConfig.label}
                       </span>
                       {idea.category && (
-                        <span className="text-xs font-mono uppercase px-2 py-1 rounded bg-[rgba(0,212,255,0.1)] text-[#00d4ff]">
+                        <span className="text-xs font-mono uppercase px-2.5 py-1 rounded bg-[rgba(0,212,255,0.1)] text-[#00d4ff]">
                           {CATEGORY_LABELS[idea.category] || idea.category}
                         </span>
                       )}
                       {scoreConfig && (
-                        <span className={`text-xs font-mono uppercase px-2 py-1 rounded ${scoreConfig.bg} ${scoreConfig.color} flex items-center gap-1`}>
+                        <span className={`text-xs font-mono uppercase px-2.5 py-1 rounded ${scoreConfig.bg} ${scoreConfig.color} flex items-center gap-1`}>
                           {ScoreIcon && <ScoreIcon className="w-3 h-3" />}
                           {scoreConfig.label}
                         </span>

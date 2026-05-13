@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Brain, List, ChatText, Stack, Circuitry, X, List as ListIcon } from '@phosphor-icons/react'
+import {
+  Brain, List, ChatText, Stack, Circuitry, X, List as ListIcon
+} from '@phosphor-icons/react'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Recorder', icon: Brain },
@@ -19,7 +21,7 @@ export default function NavBar({ onDisconnect }) {
     <>
       {/* Desktop Nav - Floating Pill */}
       <nav className="hidden md:flex fixed top-6 left-1/2 -translate-x-1/2 z-50">
-        <div className="liquid-glass-strong rounded-full px-2 py-2 flex items-center gap-1">
+        <div className="liquid-glass-strong rounded-full px-3 py-2.5 flex items-center gap-1">
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path ||
               (item.path !== '/' && location.pathname.startsWith(item.path))
@@ -30,7 +32,7 @@ export default function NavBar({ onDisconnect }) {
                 key={item.path}
                 to={item.path}
                 className={({ isActive: navActive }) =>
-                  `relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                  `relative flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
                     navActive || isActive
                       ? 'text-[#00d4ff]'
                       : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
@@ -54,11 +56,11 @@ export default function NavBar({ onDisconnect }) {
             )
           })}
 
-          <div className="w-px h-5 bg-[var(--color-border-subtle)] mx-1" />
+          <div className="w-px h-5 bg-[var(--color-border-subtle)] mx-2" />
 
           <button
             onClick={onDisconnect}
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-[var(--color-text-muted)] hover:text-[#ff4757] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-[var(--color-text-muted)] hover:text-[#ff4757] transition-colors"
           >
             <X className="w-4 h-4" />
             <span>Disconnect</span>

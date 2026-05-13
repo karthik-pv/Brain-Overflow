@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Microphone, Stop, PaperPlaneRight, Spinner, Warning } from '@phosphor-icons/react'
+import { Microphone, Stop, PaperPlaneRight, Spinner, Warning, Keyboard } from '@phosphor-icons/react'
 import ParticleCanvas from './ParticleCanvas'
 import { useAudioVisualizer } from '../hooks/useAudioVisualizer'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
@@ -19,15 +19,33 @@ export default function VoiceRecorder({ onIdeaCreated }) {
   const [error, setError] = useState('')
   const [frequencyData, setFrequencyData] = useState(null)
   const [editableTranscript, setEditableTranscript] = useState('')
+  const [showManualInput, setShowManualInput] = useState(false)
+  const [manualText, setManualText] = useState('')
+  
   const { start: startAudio, stop: stopAudio } = useAudioVisualizer()
-  const { transcript, interimTranscript, isListening, start: startSpeech, stop: stopSpeech, reset: resetSpeech } = useSpeechRecognition()
-  const containerRef = useRef(null)
-
+  const { 
+    transcript, 
+    interimTranscript, 
+    isListening, 
+    start: startSpeech, 
+    stop: stopSpeech, 
+    reset: resetSpeech 
+  } = useSpeechRecognition()
+  
+  // Use ref to avoid stale closure
+  const transcriptRef = useRef('')
   const fullTranscript = transcript + interimTranscript
+  
+  // Keep ref in sync
+  useEffect(() => {
+    transcriptRef.current = fullTranscript
+  }, [fullTranscript])
 
   const handleStart = useCallback(async () => {
     setError('')
     setState(STATES.LISTENING)
+    setEditableTranscript('')
+    setManualText('')
     resetSpeech()
 
     const audioStarted = await startAudio((data) => {
@@ -35,16 +53,18 @@ export default function VoiceRecorder({ onIdeaCreated }) {
     })
 
     if (!audioStarted) {
-      setError('Microphone access denied. Please allow microphone permissions.')
-      setState(STATES.ERROR)
+      setError('Microphone access denied. Please allow microphone permissions or type your idea below.')
+      setState(STATES.IDLE)
+      setShowManualInput(true)
       return
     }
 
     const speechStarted = startSpeech()
     if (!speechStarted) {
-      setError('Speech recognition not supported in this browser.')
-      setState(STATES.ERROR)
+      setError('Speech recognition not supported in this browser. Please type your idea below.')
       stopAudio()
+      setState(STATES.IDLE)
+      setShowManualInput(true)
     }
   }, [startAudio, startSpeech, resetSpeech, stopAudio])
 
@@ -52,12 +72,19 @@ export default function VoiceRecorder({ onIdeaCreated }) {
     stopAudio()
     stopSpeech()
     setFrequencyData(null)
-    setEditableTranscript(fullTranscript.trim())
+    
+    // Use ref to get latest transcript (avoids stale closure)
+    const capturedTranscript = transcriptRef.current.trim()
+    setEditableTranscript(capturedTranscript)
     setState(STATES.IDLE)
-  }, [stopAudio, stopSpeech, fullTranscript])
+    
+    if (!capturedTranscript) {
+      setShowManualInput(true)
+    }
+  }, [stopAudio, stopSpeech])
 
-  const handleSubmit = useCallback(async () => {
-    const text = editableTranscript || fullTranscript
+  const handleSubmit = useCallback(async (textToSubmit) => {
+    const text = textToSubmit || editableTranscript || manualText
     if (!text.trim()) {
       setError('Please speak or type your idea first.')
       setState(STATES.ERROR)
@@ -121,89 +148,97 @@ export default function VoiceRecorder({ onIdeaCreated }) {
         setState(STATES.IDLE)
         resetSpeech()
         setEditableTranscript('')
+        setManualText('')
+        setShowManualInput(false)
       }, 2000)
     } catch (err) {
       setError(err.message || 'Failed to submit idea')
       setState(STATES.ERROR)
     }
-  }, [editableTranscript, fullTranscript, onIdeaCreated, resetSpeech])
+  }, [editableTranscript, manualText, onIdeaCreated, resetSpeech])
 
   const isListeningState = state === STATES.LISTENING
   const isProcessing = state === STATES.PROCESSING
   const isCompleted = state === STATES.COMPLETED
   const hasError = state === STATES.ERROR
+  const hasTranscript = editableTranscript || manualText
 
   return (
-    <div ref={containerRef} className="flex flex-col items-center justify-center w-full max-w-2xl mx-auto">
-      {/* Visualizer */}
-      <div className="relative mb-8">
-        <AnimatePresence>
-          {isListeningState && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-            >
-              <ParticleCanvas
-                frequencyData={frequencyData}
-                isListening={isListeningState}
-                size={320}
+    <div className="flex flex-col items-center justify-center w-full max-w-3xl mx-auto">
+      {/* Main Visualizer Area */}
+      <div className="relative flex flex-col items-center justify-center mb-6 w-full">
+        {/* Particle Canvas */}
+        <div className="relative w-[320px] h-[320px] flex items-center justify-center">
+          <AnimatePresence>
+            {isListeningState && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <ParticleCanvas
+                  frequencyData={frequencyData}
+                  isListening={isListeningState}
+                  size={320}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Center Record Button - Always visible, positioned in center */}
+          <motion.button
+            className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+              isListeningState
+                ? 'bg-[rgba(255,71,87,0.2)] border-2 border-[#ff4757] shadow-[0_0_30px_rgba(255,71,87,0.3)]'
+                : isProcessing
+                ? 'bg-[rgba(0,212,255,0.1)] border-2 border-[rgba(0,212,255,0.3)]'
+                : 'bg-[rgba(0,212,255,0.15)] border-2 border-[rgba(0,212,255,0.3)] hover:bg-[rgba(0,212,255,0.25)] hover:border-[rgba(0,212,255,0.5)] hover:shadow-[0_0_30px_rgba(0,212,255,0.2)]'
+            }`}
+            whileHover={!isProcessing ? { scale: 1.08 } : {}}
+            whileTap={!isProcessing ? { scale: 0.92 } : {}}
+            onClick={isListeningState ? handleStop : isProcessing ? undefined : handleStart}
+            disabled={isProcessing}
+            style={{ margin: '0 auto' }}
+          >
+            {isListeningState ? (
+              <Stop weight="fill" className="w-8 h-8 text-[#ff4757]" />
+            ) : isProcessing ? (
+              <Spinner className="w-8 h-8 text-[#00d4ff] animate-spin" />
+            ) : (
+              <Microphone weight="fill" className="w-8 h-8 text-[#00d4ff]" />
+            )}
+
+            {/* Pulse ring when listening */}
+            {isListeningState && (
+              <motion.div
+                className="absolute inset-0 rounded-full border-2 border-[#ff4757]"
+                animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               />
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </motion.button>
+        </div>
 
-        {/* Center Button */}
-        <motion.button
-          className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-            isListeningState
-              ? 'bg-[rgba(255,71,87,0.2)] border-2 border-[#ff4757]'
-              : isProcessing
-              ? 'bg-[rgba(0,212,255,0.1)] border-2 border-[rgba(0,212,255,0.3)]'
-              : 'bg-[rgba(0,212,255,0.15)] border-2 border-[rgba(0,212,255,0.3)] hover:bg-[rgba(0,212,255,0.25)] hover:border-[rgba(0,212,255,0.5)]'
-          }`}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={isListeningState ? handleStop : isProcessing ? undefined : handleStart}
-          disabled={isProcessing}
+        {/* Status Text */}
+        <motion.p
+          className="text-sm font-mono tracking-widest uppercase mt-4 mb-2"
+          style={{ color: 'var(--color-text-muted)' }}
+          animate={isListeningState ? { opacity: [0.5, 1, 0.5] } : {}}
+          transition={{ duration: 2, repeat: Infinity }}
         >
-          {isListeningState ? (
-            <Stop weight="fill" className="w-8 h-8 text-[#ff4757]" />
-          ) : isProcessing ? (
-            <Spinner className="w-8 h-8 text-[#00d4ff] animate-spin" />
-          ) : (
-            <Microphone weight="fill" className="w-8 h-8 text-[#00d4ff]" />
-          )}
-
-          {/* Pulse ring when listening */}
-          {isListeningState && (
-            <motion.div
-              className="absolute inset-0 rounded-full border-2 border-[#ff4757]"
-              animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          )}
-        </motion.button>
+          {isListeningState && 'Listening... Speak your idea'}
+          {isProcessing && 'Processing your idea...'}
+          {isCompleted && 'Idea captured! Redirecting...'}
+          {hasError && 'Something went wrong'}
+          {state === STATES.IDLE && !hasTranscript && 'Tap microphone to speak'}
+        </motion.p>
       </div>
 
-      {/* Status Text */}
-      <motion.p
-        className="text-sm font-mono tracking-wider uppercase mb-6"
-        style={{ color: 'var(--color-text-muted)' }}
-        animate={{ opacity: [0.6, 1, 0.6] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
-        {isListeningState && 'Listening...'}
-        {isProcessing && 'Analyzing your idea...'}
-        {isCompleted && 'Idea captured!'}
-        {hasError && 'Error occurred'}
-        {state === STATES.IDLE && 'Tap to speak your idea'}
-      </motion.p>
-
-      {/* Transcript Area */}
+      {/* Transcript / Manual Input Area */}
       <AnimatePresence mode="wait">
-        {(isListeningState || editableTranscript || fullTranscript) && (
+        {(isListeningState || hasTranscript || showManualInput) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -212,40 +247,80 @@ export default function VoiceRecorder({ onIdeaCreated }) {
             className="w-full liquid-glass rounded-2xl p-6 mb-6"
           >
             {isListeningState ? (
-              <p className="text-base leading-relaxed min-h-[80px]">
-                {fullTranscript}
-                <span className="animate-pulse text-[#00d4ff]">|</span>
-              </p>
+              <div className="min-h-[100px]">
+                <p className="text-base leading-relaxed">
+                  {fullTranscript}
+                  <span className="animate-pulse text-[#00d4ff] ml-0.5">|</span>
+                </p>
+                {!fullTranscript && (
+                  <p className="text-sm italic mt-2" style={{ color: 'var(--color-text-dim)' }}>
+                    Start speaking... your words will appear here
+                  </p>
+                )}
+              </div>
             ) : (
-              <textarea
-                value={editableTranscript || fullTranscript}
-                onChange={(e) => setEditableTranscript(e.target.value)}
-                className="w-full bg-transparent border-none outline-none text-base leading-relaxed resize-none min-h-[80px]"
-                placeholder="Your idea will appear here..."
-                rows={4}
-              />
+              <div>
+                <label className="text-xs font-mono uppercase tracking-wider mb-2 block" style={{ color: 'var(--color-text-muted)' }}>
+                  {editableTranscript ? 'Your Idea (editable)' : 'Type Your Idea'}
+                </label>
+                <textarea
+                  value={editableTranscript || manualText}
+                  onChange={(e) => {
+                    if (editableTranscript) {
+                      setEditableTranscript(e.target.value)
+                    } else {
+                      setManualText(e.target.value)
+                    }
+                  }}
+                  className="w-full bg-transparent border-none outline-none text-base leading-relaxed resize-none min-h-[100px]"
+                  placeholder="Describe your startup idea here..."
+                  rows={4}
+                />
+              </div>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Submit Button */}
-      <AnimatePresence>
-        {(editableTranscript || fullTranscript) && !isListeningState && !isProcessing && !isCompleted && (
+      {/* Action Buttons */}
+      <div className="flex items-center gap-4">
+        <AnimatePresence>
+          {hasTranscript && !isListeningState && !isProcessing && !isCompleted && (
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => handleSubmit()}
+              className="flex items-center gap-2 px-8 py-3 rounded-full bg-[rgba(0,212,255,0.15)] border border-[rgba(0,212,255,0.3)] text-[#00d4ff] font-medium hover:bg-[rgba(0,212,255,0.25)] transition-all duration-300 shadow-[0_0_20px_rgba(0,212,255,0.1)]"
+            >
+              <PaperPlaneRight weight="fill" className="w-5 h-5" />
+              Analyze Idea
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Manual input toggle */}
+        {!isListeningState && !isProcessing && !isCompleted && (
           <motion.button
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleSubmit}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-[rgba(0,212,255,0.15)] border border-[rgba(0,212,255,0.3)] text-[#00d4ff] font-medium hover:bg-[rgba(0,212,255,0.25)] transition-colors"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setShowManualInput(!showManualInput)
+              if (!showManualInput) {
+                setEditableTranscript('')
+                setManualText('')
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+            style={{ color: 'var(--color-text-muted)' }}
           >
-            <PaperPlaneRight weight="fill" className="w-5 h-5" />
-            Analyze Idea
+            <Keyboard className="w-4 h-4" />
+            {showManualInput ? 'Hide Keyboard' : 'Type Instead'}
           </motion.button>
         )}
-      </AnimatePresence>
+      </div>
 
       {/* Error */}
       <AnimatePresence>
@@ -254,13 +329,28 @@ export default function VoiceRecorder({ onIdeaCreated }) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex items-center gap-2 mt-4 text-[#ff4757] text-sm"
+            className="flex items-center gap-2 mt-6 p-4 rounded-xl bg-[rgba(255,71,87,0.1)] border border-[rgba(255,71,87,0.2)] text-[#ff4757] text-sm max-w-lg text-center"
           >
-            <Warning className="w-4 h-4" />
+            <Warning className="w-5 h-5 shrink-0" />
             {error}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Instructions */}
+      {state === STATES.IDLE && !hasTranscript && !showManualInput && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 text-center max-w-md"
+        >
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-dim)' }}>
+            Speak naturally about your startup idea. Our AI will analyze it using the Paul Graham framework — 
+            evaluating market need, competition, and feasibility.
+          </p>
+        </motion.div>
+      )}
     </div>
   )
 }
