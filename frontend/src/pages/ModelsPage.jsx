@@ -166,11 +166,12 @@ export default function ModelsPage() {
                   <select
                     value={form.provider}
                     onChange={e => setForm(f => ({ ...f, provider: e.target.value }))}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] rounded-xl px-4 py-3 text-sm focus:border-[#00d4ff] outline-none transition-colors"
+                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] rounded-xl px-4 py-3 text-sm focus:border-[#00d4ff] outline-none transition-colors appearance-none cursor-pointer"
+                    style={{ color: 'var(--color-text-primary)' }}
                   >
-                    <option value="fireworks">Fireworks AI</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
+                    <option value="fireworks" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Fireworks AI</option>
+                    <option value="openai" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>OpenAI</option>
+                    <option value="anthropic" style={{ background: '#0a0f1e', color: '#e8ecf1' }}>Anthropic</option>
                   </select>
                 </div>
                 <div>

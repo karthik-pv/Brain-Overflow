@@ -2,9 +2,10 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 
 export function useSpeechRecognition() {
   const [transcript, setTranscript] = useState('')
-  const [isListening, setIsListening] = useState(false)
   const [interimTranscript, setInterimTranscript] = useState('')
+  const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef(null)
+  const interimRef = useRef('')
 
   const start = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -38,6 +39,7 @@ export function useSpeechRecognition() {
         setTranscript(prev => prev + final)
       }
       setInterimTranscript(interim)
+      interimRef.current = interim
     }
 
     recognition.onerror = (event) => {
@@ -48,7 +50,8 @@ export function useSpeechRecognition() {
 
     recognition.onend = () => {
       setIsListening(false)
-      setInterimTranscript('')
+      // NOTE: We intentionally do NOT clear interim here.
+      // The stop() function will append it to the final transcript.
     }
 
     recognitionRef.current = recognition
@@ -57,17 +60,29 @@ export function useSpeechRecognition() {
   }, [])
 
   const stop = useCallback(() => {
+    // CRITICAL FIX: Append any remaining interim transcript to final
+    // before stopping, so we don't lose the last words spoken.
+    const remainingInterim = interimRef.current.trim()
+    if (remainingInterim) {
+      setTranscript(prev => {
+        const combined = (prev + ' ' + remainingInterim).trim()
+        return combined
+      })
+      interimRef.current = ''
+      setInterimTranscript('')
+    }
+
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
     }
     setIsListening(false)
-    setInterimTranscript('')
   }, [])
 
   const reset = useCallback(() => {
     setTranscript('')
     setInterimTranscript('')
+    interimRef.current = ''
   }, [])
 
   useEffect(() => {
