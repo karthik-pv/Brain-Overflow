@@ -64,6 +64,28 @@ export default function Terminal() {
     execute(cmd)
   }, [input, isProcessing, execute])
   
+  const handleRecorderComplete = useCallback((ideaId) => {
+    setShowRecorder(false)
+    addLine('', 'system')
+    addLine('TRANSMISSION COMPLETE.', 'output')
+    addLine(`IDEA ID: ${ideaId?.slice(0, 8) || 'UNKNOWN'}`, 'output')
+    addLine('USE "ideas" TO VIEW ALL TRANSMISSIONS.', 'output')
+    addLine('', 'system')
+    
+    // Refocus input
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }, [addLine])
+  
+  const handleRecorderCancel = useCallback(() => {
+    setShowRecorder(false)
+    addLine('', 'system')
+    addLine('TRANSMISSION CANCELLED.', 'output')
+    addLine('', 'system')
+    
+    // Refocus input
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }, [addLine])
+  
   const handleKeyDown = useCallback((e) => {
     // Ctrl+L to clear
     if (e.ctrlKey && e.key === 'l') {
@@ -107,28 +129,6 @@ export default function Terminal() {
       }
     }
   }, [input, history, historyIndex, showRecorder, handleRecorderCancel])
-  
-  const handleRecorderComplete = useCallback((ideaId) => {
-    setShowRecorder(false)
-    addLine('', 'system')
-    addLine('TRANSMISSION COMPLETE.', 'output')
-    addLine(`IDEA ID: ${ideaId?.slice(0, 8) || 'UNKNOWN'}`, 'output')
-    addLine('USE "ideas" TO VIEW ALL TRANSMISSIONS.', 'output')
-    addLine('', 'system')
-    
-    // Refocus input
-    setTimeout(() => inputRef.current?.focus(), 100)
-  }, [addLine])
-  
-  const handleRecorderCancel = useCallback(() => {
-    setShowRecorder(false)
-    addLine('', 'system')
-    addLine('TRANSMISSION CANCELLED.', 'output')
-    addLine('', 'system')
-    
-    // Refocus input
-    setTimeout(() => inputRef.current?.focus(), 100)
-  }, [addLine])
   
   // Auto-focus input
   useEffect(() => {
