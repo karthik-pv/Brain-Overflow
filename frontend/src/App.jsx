@@ -1,45 +1,47 @@
-import { useState } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
-import { isConfigured, clearSupabase } from './lib/supabase.js'
-import SetupScreen from './components/SetupScreen.jsx'
-import NavBar from './components/NavBar.jsx'
-import VoiceRecorderPage from './pages/VoiceRecorderPage.jsx'
-import IdeasPage from './pages/IdeasPage.jsx'
-import IdeaDetailPage from './pages/IdeaDetailPage.jsx'
-import PromptsPage from './pages/PromptsPage.jsx'
-import FlowsPage from './pages/FlowsPage.jsx'
-import ModelsPage from './pages/ModelsPage.jsx'
+import { useState, useEffect } from 'react'
+import { useAppStore } from './stores/appStore'
+import BootSequence from './components/terminal/BootSequence'
+import Terminal from './components/terminal/Terminal'
+import StatusBar from './components/ui/StatusBar'
+import Scanlines from './components/effects/Scanlines'
+import Vignette from './components/effects/Vignette'
+import NoiseOverlay from './components/effects/NoiseOverlay'
+import Flicker from './components/effects/Flicker'
+import CanvasLayer from './components/layout/CanvasLayer'
 
 export default function App() {
-  const [configured, setConfigured] = useState(isConfigured())
-
-  if (!configured) {
-    return <SetupScreen onDone={() => setConfigured(true)} />
+  const [showBoot, setShowBoot] = useState(true)
+  const bootComplete = useAppStore((s) => s.bootComplete)
+  
+  const handleBootComplete = () => {
+    setTimeout(() => {
+      setShowBoot(false)
+    }, 500)
   }
-
-  function handleDisconnect() {
-    localStorage.removeItem('sb_url')
-    localStorage.removeItem('sb_key')
-    clearSupabase()
-    setConfigured(false)
-  }
-
+  
   return (
-    <BrowserRouter>
-      <div className="min-h-[100dvh] bg-[#050811] text-[#e8ecf1] font-sans">
-        <NavBar onDisconnect={handleDisconnect} />
-        <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<VoiceRecorderPage />} />
-            <Route path="/ideas" element={<IdeasPage />} />
-            <Route path="/idea/:id" element={<IdeaDetailPage />} />
-            <Route path="/prompts" element={<PromptsPage />} />
-            <Route path="/flows" element={<FlowsPage />} />
-            <Route path="/models" element={<ModelsPage />} />
-          </Routes>
-        </AnimatePresence>
+    <div className="relative w-screen h-screen bg-[#020202] overflow-hidden">
+      {/* WebGL Background */}
+      <CanvasLayer />
+      
+      {/* Visual Effects */}
+      <Scanlines />
+      <Vignette />
+      <NoiseOverlay />
+      <Flicker />
+      
+      {/* UI Layer */}
+      <div className="relative z-10 w-full h-full">
+        <StatusBar />
+        
+        {/* Main Content */}
+        <div className="pt-10 h-full">
+          <Terminal />
+        </div>
       </div>
-    </BrowserRouter>
+      
+      {/* Boot Sequence */}
+      {showBoot && <BootSequence onComplete={handleBootComplete} />}
+    </div>
   )
 }
