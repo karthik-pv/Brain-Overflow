@@ -6,6 +6,7 @@ import StatusBar from './components/ui/StatusBar'
 import Scanlines from './components/effects/Scanlines'
 import Vignette from './components/effects/Vignette'
 import NoiseOverlay from './components/effects/NoiseOverlay'
+import Flicker from './components/effects/Flicker'
 import CanvasLayer from './components/layout/CanvasLayer'
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
       <Scanlines />
       <Vignette />
       <NoiseOverlay />
+      <Flicker />
       
       {/* UI Layer */}
       <div className="relative z-10 w-full h-full">

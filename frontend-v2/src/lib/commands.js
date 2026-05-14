@@ -12,6 +12,8 @@ export const COMMANDS = {
       '  flows             — List configured flows',
       '  prompts           — List available prompts',
       '  models            — List AI models',
+      '  status            — System status and diagnostics',
+      '  time              — Current system time',
       '  settings          — System settings',
       '  help              — Show this help',
       '  clear             — Clear terminal',
@@ -413,6 +415,58 @@ export const COMMANDS = {
       root.style.setProperty('--color-phosphor-glow', c.glow)
       
       return [`PHOSPHOR COLOR: ${color.toUpperCase()}`, '']
+    }
+  },
+  
+  status: {
+    description: 'System status and diagnostics',
+    handler: () => {
+      const memory = performance?.memory ? {
+        used: Math.round(performance.memory.usedJSHeapSize / 1048576),
+        total: Math.round(performance.memory.totalJSHeapSize / 1048576),
+        limit: Math.round(performance.memory.jsHeapSizeLimit / 1048576)
+      } : null
+      
+      const lines = [
+        'SYSTEM DIAGNOSTICS',
+        '─'.repeat(40),
+        `OS:       BRAIN_OVERFLOW v0.7.3-alpha-recovered`,
+        `PLATFORM: ${navigator.platform}`,
+        `BROWSER:  ${navigator.userAgent.split(' ').pop()}`,
+        `ONLINE:   ${navigator.onLine ? 'YES' : 'NO'}`,
+        `LANGUAGE: ${navigator.language.toUpperCase()}`,
+        `CORES:    ${navigator.hardwareConcurrency || 'UNKNOWN'}`,
+      ]
+      
+      if (memory) {
+        lines.push(`MEMORY:   ${memory.used}MB / ${memory.total}MB (LIMIT: ${memory.limit}MB)`)
+      }
+      
+      lines.push(
+        `SUPABASE: ${isConfigured() ? 'CONNECTED' : 'NOT CONFIGURED'}`,
+        `STORAGE:  ${Math.round(JSON.stringify(localStorage).length / 1024)}KB USED`,
+        '─'.repeat(40),
+        ''
+      )
+      
+      return lines
+    }
+  },
+  
+  time: {
+    description: 'Current system time',
+    handler: () => {
+      const now = new Date()
+      return [
+        'SYSTEM TIME',
+        '─'.repeat(40),
+        `LOCAL:    ${now.toISOString()}`,
+        `EPOCH:    ${Math.floor(now.getTime() / 1000)}`,
+        `DATE:     ${now.toDateString()}`,
+        `TIME:     ${now.toTimeString()}`,
+        '─'.repeat(40),
+        ''
+      ]
     }
   },
   
