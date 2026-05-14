@@ -473,7 +473,28 @@ export const COMMANDS = {
   
   settings: {
     description: 'System settings',
-    handler: () => {
+    handler: (args) => {
+      const validKeys = ['crtEffects', 'scanlines', 'flicker', 'noise', 'sound']
+      
+      // Toggle setting if args provided
+      if (args.length >= 2) {
+        const [key, value] = args
+        
+        if (!validKeys.includes(key)) {
+          return [`ERROR: Unknown setting "${key}"`, `VALID: ${validKeys.join(', ')}`, '']
+        }
+        
+        const enabled = value === 'on' || value === 'true' || value === '1'
+        localStorage.setItem(key, enabled ? 'true' : 'false')
+        
+        return [
+          `SETTING UPDATED: ${key}`,
+          `VALUE: ${enabled ? 'ENABLED' : 'DISABLED'}`,
+          'REFRESH REQUIRED FOR SOME CHANGES.',
+          ''
+        ]
+      }
+      
       const settings = {
         crtEffects: localStorage.getItem('crtEffects') !== 'false',
         scanlines: localStorage.getItem('scanlines') !== 'false',
