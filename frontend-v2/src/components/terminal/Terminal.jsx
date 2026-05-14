@@ -1,134 +1,58 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../stores/appStore'
-import TypewriterText from './TypewriterText'
+import { executeCommand } from '../../lib/commands'
 import BlinkingCursor from './BlinkingCursor'
-
-const COMMANDS = {
-  help: {
-    description: 'Show available commands',
-    handler: () => [
-      'AVAILABLE COMMANDS:',
-      '  record [idea]     — Record a new idea (voice or text)',
-      '  ideas             — List all recorded ideas',
-      '  idea [id]         — View idea detail and analysis',
-      '  analyze [id]      — Run analysis on an idea',
-      '  flows             — List configured flows',
-      '  prompts           — List available prompts',
-      '  models            — List AI models',
-      '  settings          — System settings',
-      '  help              — Show this help',
-      '  clear             — Clear terminal',
-      '  theme [color]     — Change phosphor color (cyan/amber/green/white)',
-      '  reboot            — Restart system',
-      ''
-    ]
-  },
-  clear: {
-    description: 'Clear terminal',
-    handler: () => {
-      return ['CLEAR']
-    }
-  },
-  theme: {
-    description: 'Change phosphor color',
-    handler: (args) => {
-      const colors = ['cyan', 'amber', 'green', 'white']
-      const color = args[0]
-      
-      if (!color) {
-        return ['USAGE: theme [cyan|amber|green|white]', 'CURRENT: cyan', '']
-      }
-      
-      if (!colors.includes(color)) {
-        return [`ERROR: Unknown color "${color}"`, `VALID: ${colors.join(', ')}`, '']
-      }
-      
-      // Update CSS variables
-      const root = document.documentElement
-      const colorMap = {
-        cyan: { primary: '#00f3ff', dim: 'rgba(0, 243, 255, 0.3)', glow: 'rgba(0, 243, 255, 0.15)' },
-        amber: { primary: '#ffb000', dim: 'rgba(255, 176, 0, 0.3)', glow: 'rgba(255, 176, 0, 0.15)' },
-        green: { primary: '#33ff00', dim: 'rgba(51, 255, 0, 0.3)', glow: 'rgba(51, 255, 0, 0.15)' },
-        white: { primary: '#e0e0e0', dim: 'rgba(224, 224, 224, 0.3)', glow: 'rgba(224, 224, 224, 0.15)' }
-      }
-      
-      const c = colorMap[color]
-      root.style.setProperty('--color-phosphor-primary', c.primary)
-      root.style.setProperty('--color-phosphor-dim', c.dim)
-      root.style.setProperty('--color-phosphor-glow', c.glow)
-      
-      return [`PHOSPHOR COLOR: ${color.toUpperCase()}`, '']
-    }
-  },
-  reboot: {
-    description: 'Restart system',
-    handler: () => {
-      window.location.reload()
-      return ['REBOOTING...', '']
-    }
-  }
-}
 
 export default function Terminal() {
   const [lines, setLines] = useState([])
   const [input, setInput] = useState('')
   const [history, setHistory] = useState([])
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const [isProcessing, setIsProcessing] = useState(false)
   const inputRef = useRef(null)
   const terminalRef = useRef(null)
   const bootComplete = useAppStore((s) => s.bootComplete)
   
   const addLine = useCallback((text, type = 'output') => {
-    setLines(prev => [...prev, { text, type, id: Date.now() + Math.random() }])
-  }, [])
-  
-  const executeCommand = useCallback((cmdLine) => {
-    const trimmed = cmdLine.trim()
-    if (!trimmed) return
-    
-    // Add command to history
-    setHistory(prev => [...prev, trimmed])
-    setHistoryIndex(-1)
-    
-    // Show command in terminal
-    addLine(`> ${trimmed}`, 'command')
-    
-    // Parse command
-    const parts = trimmed.split(/\s+/)
-    const cmd = parts[0].toLowerCase()
-    const args = parts.slice(1)
-    
-    // Execute
-    if (cmd === 'clear') {
+    if (text === 'CLEAR') {
       setLines([])
       return
     }
+    setLines(prev => [...prev, { text, type, id: Date.now() + Math.random() }])
+  }, [])
+  
+  const execute = useCallback(async (cmdLine) => {
+    if (!cmdLine.trim()) return
     
-    const command = COMMANDS[cmd]
-    if (command) {
-      const results = command.handler(args)
-      results.forEach((line, i) => {
-        setTimeout(() => {
-          if (line === 'CLEAR') {
-            setLines([])
-          } else {
-            addLine(line, 'output')
-          }
-        }, i * 50)
-      })
-    } else {
-      addLine(`ERROR: Unknown command "${cmd}"`, 'error')
-      addLine('Type "help" for available commands.', 'system')
+    setIsProcessing(true)
+    
+    // Add command to history
+    setHistory(prev => [...prev, cmdLine])
+    setHistoryIndex(-1)
+    
+    // Show command in terminal
+    addLine(`> ${cmdLine}`, 'command')
+    
+    // Execute command
+    const results = await executeCommand(cmdLine)
+    
+    // Display results with slight delay for atmosphere
+    for (let i = 0; i < results.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 30))
+      addLine(results[i], 'output')
     }
+    
+    setIsProcessing(false)
   }, [addLine])
   
   const handleSubmit = useCallback((e) => {
     e.preventDefault()
-    if (!input.trim()) return
+    if (!input.trim() || isProcessing) return
     
-    executeCommand(input)
+    const cmd = input
     setInput('')
-  }, [input, executeCommand])
+    execute(cmd)
+  }, [input, isProcessing, execute])
   
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'ArrowUp') {
@@ -152,7 +76,8 @@ export default function Terminal() {
       e.preventDefault()
       // Simple tab completion
       const partial = input.toLowerCase()
-      const matches = Object.keys(COMMANDS).filter(cmd => cmd.startsWith(partial))
+      const commands = ['help', 'setup', 'record', 'ideas', 'idea', 'flows', 'prompts', 'models', 'settings', 'clear', 'theme', 'reboot']
+      const matches = commands.filter(cmd => cmd.startsWith(partial))
       if (matches.length === 1) {
         setInput(matches[0] + ' ')
       }
@@ -182,14 +107,15 @@ export default function Terminal() {
         'AN ABANDONED OPERATING SYSTEM FOR THINKERS AND DREAMERS.',
         '',
         'TYPE "help" FOR AVAILABLE COMMANDS.',
-        'TYPE "record" TO CAPTURE AN IDEA.',
+        'TYPE "record <idea>" TO CAPTURE AN IDEA.',
+        'TYPE "setup <url> <key>" TO CONFIGURE SUPABASE.',
         ''
       ]
       
       welcomeLines.forEach((line, i) => {
         setTimeout(() => {
           addLine(line, line ? 'output' : 'system')
-        }, i * 100)
+        }, i * 80)
       })
     }
   }, [bootComplete, lines.length, addLine])
@@ -197,7 +123,7 @@ export default function Terminal() {
   if (!bootComplete) return null
   
   return (
-    <div className="fixed inset-0 z-10 flex flex-col p-6 md:p-12">
+    <div className="fixed inset-0 z-10 flex flex-col pt-10 px-6 md:px-12 pb-6">
       {/* Terminal Output */}
       <div 
         ref={terminalRef}
@@ -206,35 +132,43 @@ export default function Terminal() {
           fontFamily: 'var(--font-mono)',
           scrollbarWidth: 'thin'
         }}
+        onClick={() => inputRef.current?.focus()}
       >
         {lines.map((line) => (
           <div 
             key={line.id}
-            className={`terminal-line ${line.type === 'command' ? 'prompt phosphor-glow' : ''} ${line.type === 'error' ? 'text-[#ff3030]' : ''} ${line.type === 'system' ? 'text-[#4a4a4a] text-xs' : ''}`}
+            className={`terminal-line ${
+              line.type === 'command' ? 'prompt phosphor-glow' : ''
+            } ${
+              line.type === 'error' ? 'text-[#ff3030]' : ''
+            } ${
+              line.type === 'system' ? 'text-[#4a4a4a] text-xs' : ''
+            }`}
           >
-            {line.type === 'command' ? line.text : line.text}
+            {line.text}
           </div>
         ))}
       </div>
       
       {/* Input Line */}
-      <form onSubmit={handleSubmit} className="mt-4 flex items-center">
-        <span className="text-[#00f3ff] mr-2 font-mono">{'>'}</span>
+      <form onSubmit={handleSubmit} className="mt-4 flex items-center shrink-0">
+        <span className="text-[#00f3ff] mr-2 font-mono shrink-0">{'>'}</span>
         <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent border-none outline-none text-[#e0e0e0] font-mono text-sm caret-[#00f3ff]"
+          className="flex-1 bg-transparent border-none outline-none text-[#e0e0e0] font-mono text-sm caret-[#00f3ff] min-w-0"
           style={{ fontFamily: 'var(--font-mono)' }}
-          placeholder="Type a command..."
+          placeholder={isProcessing ? 'PROCESSING...' : 'Type a command...'}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck="false"
+          disabled={isProcessing}
         />
-        <BlinkingCursor active={true} style="block" className="text-[#00f3ff]" />
+        <BlinkingCursor active={!isProcessing} style="block" className="text-[#00f3ff] shrink-0" />
       </form>
     </div>
   )
