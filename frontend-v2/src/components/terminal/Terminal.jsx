@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { executeCommand } from '../../lib/commands'
 import BlinkingCursor from './BlinkingCursor'
+import VoiceRecorder from './VoiceRecorder'
 
 export default function Terminal() {
   const [lines, setLines] = useState([])
@@ -9,6 +10,7 @@ export default function Terminal() {
   const [history, setHistory] = useState([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showRecorder, setShowRecorder] = useState(false)
   const inputRef = useRef(null)
   const terminalRef = useRef(null)
   const bootComplete = useAppStore((s) => s.bootComplete)
@@ -32,6 +34,14 @@ export default function Terminal() {
     
     // Show command in terminal
     addLine(`> ${cmdLine}`, 'command')
+    
+    // Special handling for "record" without arguments
+    const parts = cmdLine.trim().split(/\s+/)
+    if (parts[0].toLowerCase() === 'record' && parts.length === 1) {
+      setShowRecorder(true)
+      setIsProcessing(false)
+      return
+    }
     
     // Execute command
     const results = await executeCommand(cmdLine)
@@ -84,19 +94,41 @@ export default function Terminal() {
     }
   }, [input, history, historyIndex])
   
+  const handleRecorderComplete = useCallback((ideaId) => {
+    setShowRecorder(false)
+    addLine('', 'system')
+    addLine('TRANSMISSION COMPLETE.', 'output')
+    addLine(`IDEA ID: ${ideaId?.slice(0, 8) || 'UNKNOWN'}`, 'output')
+    addLine('USE "ideas" TO VIEW ALL TRANSMISSIONS.', 'output')
+    addLine('', 'system')
+    
+    // Refocus input
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }, [addLine])
+  
+  const handleRecorderCancel = useCallback(() => {
+    setShowRecorder(false)
+    addLine('', 'system')
+    addLine('TRANSMISSION CANCELLED.', 'output')
+    addLine('', 'system')
+    
+    // Refocus input
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }, [addLine])
+  
   // Auto-focus input
   useEffect(() => {
-    if (bootComplete && inputRef.current) {
+    if (bootComplete && inputRef.current && !showRecorder) {
       inputRef.current.focus()
     }
-  }, [bootComplete])
+  }, [bootComplete, showRecorder])
   
   // Scroll to bottom
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
-  }, [lines])
+  }, [lines, showRecorder])
   
   // Welcome message after boot
   useEffect(() => {
@@ -107,7 +139,7 @@ export default function Terminal() {
         'AN ABANDONED OPERATING SYSTEM FOR THINKERS AND DREAMERS.',
         '',
         'TYPE "help" FOR AVAILABLE COMMANDS.',
-        'TYPE "record <idea>" TO CAPTURE AN IDEA.',
+        'TYPE "record" TO CAPTURE AN IDEA (VOICE OR TEXT).',
         'TYPE "setup <url> <key>" TO CONFIGURE SUPABASE.',
         ''
       ]
@@ -132,7 +164,7 @@ export default function Terminal() {
           fontFamily: 'var(--font-mono)',
           scrollbarWidth: 'thin'
         }}
-        onClick={() => inputRef.current?.focus()}
+        onClick={() => !showRecorder && inputRef.current?.focus()}
       >
         {lines.map((line) => (
           <div 
@@ -148,28 +180,43 @@ export default function Terminal() {
             {line.text}
           </div>
         ))}
+        
+        {/* Inline Voice Recorder */}
+        {showRecorder && (
+          <div className="my-4 p-4 border border-[#2a2a2a] bg-[#0a0a0f]/80">
+            <div className="text-xs text-[#4a4a4a] uppercase tracking-wider mb-3">
+              VOICE RECORDER MODULE
+            </div>
+            <VoiceRecorder 
+              onComplete={handleRecorderComplete}
+              onCancel={handleRecorderCancel}
+            />
+          </div>
+        )}
       </div>
       
       {/* Input Line */}
-      <form onSubmit={handleSubmit} className="mt-4 flex items-center shrink-0">
-        <span className="text-[#00f3ff] mr-2 font-mono shrink-0">{'>'}</span>
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent border-none outline-none text-[#e0e0e0] font-mono text-sm caret-[#00f3ff] min-w-0"
-          style={{ fontFamily: 'var(--font-mono)' }}
-          placeholder={isProcessing ? 'PROCESSING...' : 'Type a command...'}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
-          disabled={isProcessing}
-        />
-        <BlinkingCursor active={!isProcessing} style="block" className="text-[#00f3ff] shrink-0" />
-      </form>
+      {!showRecorder && (
+        <form onSubmit={handleSubmit} className="mt-4 flex items-center shrink-0">
+          <span className="text-[#00f3ff] mr-2 font-mono shrink-0">{'>'}</span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 bg-transparent border-none outline-none text-[#e0e0e0] font-mono text-sm caret-[#00f3ff] min-w-0"
+            style={{ fontFamily: 'var(--font-mono)' }}
+            placeholder={isProcessing ? 'PROCESSING...' : 'Type a command...'}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            disabled={isProcessing}
+          />
+          <BlinkingCursor active={!isProcessing} style="block" className="text-[#00f3ff] shrink-0" />
+        </form>
+      )}
     </div>
   )
 }
