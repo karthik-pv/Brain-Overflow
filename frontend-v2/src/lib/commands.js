@@ -471,6 +471,33 @@ export const COMMANDS = {
     }
   },
   
+  settings: {
+    description: 'System settings',
+    handler: () => {
+      const settings = {
+        crtEffects: localStorage.getItem('crtEffects') !== 'false',
+        scanlines: localStorage.getItem('scanlines') !== 'false',
+        flicker: localStorage.getItem('flicker') !== 'false',
+        noise: localStorage.getItem('noise') !== 'false',
+        sound: localStorage.getItem('sound') !== 'false',
+      }
+      
+      return [
+        'SYSTEM SETTINGS',
+        '─'.repeat(40),
+        `CRT EFFECTS:  ${settings.crtEffects ? 'ENABLED' : 'DISABLED'}`,
+        `SCANLINES:    ${settings.scanlines ? 'ENABLED' : 'DISABLED'}`,
+        `FLICKER:      ${settings.flicker ? 'ENABLED' : 'DISABLED'}`,
+        `NOISE:        ${settings.noise ? 'ENABLED' : 'DISABLED'}`,
+        `SOUND:        ${settings.sound ? 'ENABLED' : 'DISABLED'}`,
+        '─'.repeat(40),
+        'TO TOGGLE: settings <key> <on|off>',
+        'EXAMPLE: settings scanlines off',
+        ''
+      ]
+    }
+  },
+  
   delete: {
     description: 'Delete an idea',
     handler: async (args) => {
