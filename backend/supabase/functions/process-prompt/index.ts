@@ -45,18 +45,17 @@ Do NOT wrap in markdown code fences. Return raw JSON only.`
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsPreflight()
 
-  let body: { idea_id?: string; prompt_index?: number }
+  let body: { idea_id?: string; prompt_index?: number; custom_prompt_id?: string }
   try { body = await req.json() }
   catch { return errorResponse('Invalid JSON body', 400) }
 
-  const { idea_id, prompt_index } = body
+  const { idea_id, prompt_index, custom_prompt_id } = body
   if (!idea_id)              return errorResponse('Missing idea_id', 400)
-  if (prompt_index == null)  return errorResponse('Missing prompt_index', 400)
 
-  const ctx = { fn: FN, idea_id, prompt_index }
+  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id }
 
   try {
-    await runPrompt(idea_id, prompt_index)
+    await runPrompt(idea_id, prompt_index, custom_prompt_id)
     return jsonResponse({ ok: true })
   } catch (err) {
     logError(ctx, err, 'process-prompt threw')
@@ -66,9 +65,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 // ─── Main Logic ──────────────────────────────────────────────────────────────
 
-async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
+async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_id?: string): Promise<void> {
   const supabase = createServiceClient()
-  const ctx      = { fn: FN, idea_id, prompt_index }
+  const ctx      = { fn: FN, idea_id, prompt_index, custom_prompt_id }
 
   // 1. Load idea
   const { data: idea, error: ideaErr } = await supabase
@@ -79,71 +78,93 @@ async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
 
   if (ideaErr || !idea) throw new Error(`Idea not found: ${ideaErr?.message}`)
 
-  // Guard: skip if idea already failed or completed by another path
-  if (idea.status === 'failed' || idea.status === 'completed') {
-    log(ctx, `Idea already in terminal state '${idea.status}' — skipping`)
-    return
+  // 2. Load flow (only needed if we are running by index)
+  let promptId = custom_prompt_id
+
+  if (!promptId) {
+    // Guard: skip if idea already failed or completed by another path and we are automating
+    if (idea.status === 'failed' || idea.status === 'completed') {
+      log(ctx, `Idea already in terminal state '${idea.status}' — skipping`)
+      return
+    }
+
+    if (prompt_index == null) throw new Error('Missing prompt_index or custom_prompt_id')
+
+    const { data: flow, error: flowErr } = await supabase
+      .from('flows')
+      .select('id, flow_name, prompt_ids')
+      .eq('id', idea.flow_id)
+      .single()
+
+    if (flowErr || !flow) throw new Error(`Flow not found: ${flowErr?.message}`)
+
+    const promptIds: string[] = flow.prompt_ids as string[]
+
+    if (prompt_index >= promptIds.length) {
+      // Past end of chain — mark completed
+      await markCompleted(supabase, idea_id)
+      log(ctx, 'No more prompts — idea completed')
+      return
+    }
+
+    promptId = promptIds[prompt_index]
   }
 
-  // 2. Load flow
-  const { data: flow, error: flowErr } = await supabase
-    .from('flows')
-    .select('id, flow_name, prompt_ids')
-    .eq('id', idea.flow_id)
-    .single()
-
-  if (flowErr || !flow) throw new Error(`Flow not found: ${flowErr?.message}`)
-
-  const promptIds: string[] = flow.prompt_ids as string[]
-
-  if (prompt_index >= promptIds.length) {
-    // Past end of chain — mark completed
-    await markCompleted(supabase, idea_id)
-    log(ctx, 'No more prompts — idea completed')
-    return
-  }
-
-  // 3. Get prompt at current index
-  const promptId = promptIds[prompt_index]
+  // 3. Get actual prompt
   const { data: prompt, error: promptErr } = await supabase
     .from('prompts')
-    .select('id, prompt_name, prompt, multi_turn')
+    .select('id, prompt_name, prompt, context_mode')
     .eq('id', promptId)
     .single()
 
   if (promptErr || !prompt) throw new Error(`Prompt not found: ${promptErr?.message}`)
 
-  log(ctx, `Running prompt '${prompt.prompt_name}' (${prompt_index + 1}/${promptIds.length})`)
+  log(ctx, `Running prompt '${prompt.prompt_name}'`)
 
   // 4. Load all prior chat_messages
   const { data: allMessages } = await supabase
     .from('chat_messages')
-    .select('role, message, sequence_number')
+    .select('message_type, message, sequence_number')
     .eq('idea_id', idea_id)
     .order('sequence_number', { ascending: true })
     
   let contextMessages = allMessages ?? []
   
-  if (!prompt.multi_turn) {
-    if (contextMessages.length <= 1) {
-      // First prompt: just the idea
-      contextMessages = contextMessages.filter(m => m.sequence_number === 1)
-    } else {
-      // Single response: only the response of the previous prompt (the last assistant message)
-      const lastAssistantResponse = contextMessages.slice().reverse().find(m => m.role === 'assistant')
-      contextMessages = lastAssistantResponse ? [lastAssistantResponse] : []
+  // 5. Build ONE explicit user message based on context_mode
+  let finalInput = prompt.prompt
+
+  if (prompt.context_mode === 'idea_only') {
+    const ideaMsg = contextMessages.find(m => m.message_type === 'idea')
+    finalInput += `\n\nIDEA:\n${ideaMsg?.message ?? ''}`
+  } else if (prompt.context_mode === 'previous_response') {
+    const prevResMsg = contextMessages.slice().reverse().find(m => m.message_type === 'response')
+    finalInput += `\n\nPREVIOUS RESPONSE:\n${prevResMsg?.message ?? ''}`
+  } else if (prompt.context_mode === 'full_history_json') {
+    const ideaMsg = contextMessages.find(m => m.message_type === 'idea')
+    const steps: { prompt: string; response: string }[] = []
+    
+    let currentPrompt = ''
+    for (const m of contextMessages) {
+      if (m.message_type === 'prompt') {
+        currentPrompt = m.message
+      } else if (m.message_type === 'response' && currentPrompt) {
+        steps.push({ prompt: currentPrompt, response: m.message })
+        currentPrompt = ''
+      }
     }
+    
+    const historyData = {
+      idea: ideaMsg?.message ?? '',
+      steps
+    }
+    finalInput += `\n\nFULL CONTEXT JSON:\n${JSON.stringify(historyData, null, 2)}`
   }
 
-  // 5. Build LLM messages array
-  //    DB roles:  user → user, system (stored prompt) → user, assistant → assistant
-  const llmMessages: fireworks.Message[] = contextMessages.map(m => ({
-    role:    (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
-    content: m.message,
-  }))
-
-  // Append current prompt as the next user turn
-  llmMessages.push({ role: 'user', content: prompt.prompt + JSON_FORMAT_INSTRUCTION })
+  // Final LLM Payload Array (exactly 1 message)
+  const llmMessages: fireworks.Message[] = [{
+    role:    'user',
+    content: finalInput + JSON_FORMAT_INSTRUCTION,
+  }]
 
   // 6. Load active model — prefers is_active=true, falls back to first row
   let model: { model_id: string; provider: string } | null = null
@@ -210,28 +231,28 @@ async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
   if (!succeeded) {
     // Store raw response and mark failed so the chain is debuggable
     await supabase.from('chat_messages').insert([
-      { idea_id, message: prompt.prompt,  role: 'system',    prompt_id: prompt.id, sequence_number: nextSeq(allMessages) },
-      { idea_id, message: rawContent,     role: 'assistant', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
+      { idea_id, message: prompt.prompt,  message_type: 'prompt',   prompt_id: prompt.id, sequence_number: nextSeq(allMessages) },
+      { idea_id, message: rawContent,     message_type: 'response', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
     ])
     await supabase.from('ideas').update({ status: 'failed' }).eq('id', idea_id)
     throw new Error('Failed to get valid JSON after 3 attempts')
   }
 
-  // 8. Store prompt (role='system') + response (role='assistant')
+  // 8. Store prompt (message_type='prompt') + response (message_type='response')
   //    AFTER storing → trigger next (ensures context is in DB before next call)
   const seqBase = nextSeq(allMessages)
   const { error: insertErr } = await supabase.from('chat_messages').insert([
     {
       idea_id,
       message:         prompt.prompt,
-      role:            'system',
+      message_type:    'prompt',
       prompt_id:       prompt.id,
       sequence_number: seqBase,
     },
     {
       idea_id,
       message:         aiAnalysis,
-      role:            'assistant',
+      message_type:    'response',
       prompt_id:       prompt.id,
       sequence_number: seqBase + 1,
     },
@@ -245,7 +266,17 @@ async function runPrompt(idea_id: string, prompt_index: number): Promise<void> {
   log(ctx, 'Messages stored', { category, score })
 
   // 10. Chain next prompt OR mark completed
-  const isLast = prompt_index + 1 >= promptIds.length
+  // If we ran a custom prompt, we don't automatically chain anything.
+  if (custom_prompt_id) {
+    await supabase.from('ideas').update({ status: 'completed' }).eq('id', idea_id)
+    log(ctx, 'Custom prompt complete — idea marked completed')
+    return
+  }
+
+  // Otherwise, handle flow logic
+  const { data: flow } = await supabase.from('flows').select('prompt_ids').eq('id', idea.flow_id).single()
+  const promptIds = (flow?.prompt_ids as string[]) || []
+  const isLast = (prompt_index || 0) + 1 >= promptIds.length
 
   if (isLast) {
     await markCompleted(supabase, idea_id)

@@ -110,7 +110,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     await supabase.from('chat_messages').insert({
       idea_id:         ideaId,
       message:         ideaText,
-      role:            'user',
+      message_type:    'idea',
       prompt_id:       null,
       sequence_number: 1,
     })
