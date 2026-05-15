@@ -229,7 +229,7 @@ export default function Plan({ tasks: extTasks, expandFirst = true }: PlanProps 
     },
   };
 
-  const statusBadgeVariants = {
+  const statusBadgeVariants: any = {
     initial: { scale: 1 },
     animate: {
       scale: prefersReducedMotion ? 1 : [1, 1.08, 1],
