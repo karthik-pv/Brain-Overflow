@@ -104,7 +104,7 @@ export function IdeaDetailPage() {
                     // {CATEGORY_LABELS[idea.category]}
                   </span>
                 )}
-                <span className="font-mono text-[10px] text-[color:var(--color-text-dim)] ml-auto">
+                <span className="font-mono text-[10px] text-[color:var(--color-text-dim)]">
                   {new Date(idea.created_at).toLocaleString()}
                 </span>
               </div>
@@ -123,11 +123,11 @@ export function IdeaDetailPage() {
 
         {/* Chat */}
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
             <h2 className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
               TRANSMISSIONS
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => {
                   const visible = messages.filter((m) => m.message_type !== 'prompt')

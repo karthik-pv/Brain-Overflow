@@ -491,9 +491,9 @@ export function FlowsPage() {
                   <span className="absolute -bottom-px -left-px h-2 w-2 bg-[color:var(--color-text-dim)]" />
                   <span className="absolute -bottom-px -right-px h-2 w-2 bg-[color:var(--color-text-dim)]" />
 
-                  <div className="relative flex items-start justify-between gap-4">
+                  <div className="relative flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex flex-wrap items-center gap-3 mb-2">
                         <h3 className="font-pixel text-base tracking-[0.04em] uppercase">
                           {flow.flow_name}
                         </h3>
@@ -510,7 +510,7 @@ export function FlowsPage() {
                           'no prompts'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         onClick={() =>
                           setEditing({

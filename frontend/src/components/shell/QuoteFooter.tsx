@@ -29,7 +29,7 @@ export function QuoteFooter() {
   }, [done])
 
   return (
-    <div className="fixed bottom-6 left-6 z-20 max-w-[440px] pointer-events-none">
+    <div className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-20 max-w-[280px] md:max-w-[440px] pointer-events-none">
       <AnimatePresence mode="wait">
         <motion.div
           key={idx}
@@ -45,12 +45,12 @@ export function QuoteFooter() {
             aria-hidden
           />
           <blockquote className="pl-5">
-            <p className="text-[15px] italic font-mono text-[color:var(--color-text-mute)] leading-relaxed">
+            <p className="text-[13px] md:text-[15px] italic font-mono text-[color:var(--color-text-mute)] leading-relaxed">
               {output}
               {!done && <span className="blink-cursor" />}
             </p>
             <div
-              className="mt-1.5 text-[11px] font-pixel uppercase tracking-[0.2em] transition-opacity duration-500"
+              className="mt-1.5 text-[10px] md:text-[11px] font-pixel uppercase tracking-[0.2em] transition-opacity duration-500"
               style={{ color: 'var(--color-text-mute)', opacity: done ? 1 : 0.55 }}
             >
               — {quote.cite}

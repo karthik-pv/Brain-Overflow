@@ -231,12 +231,12 @@ export function PromptsPage() {
                   <span className="absolute -bottom-px -left-px h-2 w-2 bg-[color:var(--color-text-dim)]" />
                   <span className="absolute -bottom-px -right-px h-2 w-2 bg-[color:var(--color-text-dim)]" />
 
-                  <div className="relative flex items-start justify-between gap-4">
+                  <div className="relative flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <h3 className="font-pixel text-base tracking-[0.04em] uppercase mb-1">
                         {p.prompt_name}
                       </h3>
-                      <div className="mb-3 flex items-center gap-2">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
                         <span className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)] border border-[color:var(--color-edge)] px-2 py-0.5">
                           {CONTEXT_LABELS[p.context_mode]}
                         </span>
@@ -248,7 +248,7 @@ export function PromptsPage() {
                         {p.prompt}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-start">
                       <button
                         onClick={() => {
                           setForm({

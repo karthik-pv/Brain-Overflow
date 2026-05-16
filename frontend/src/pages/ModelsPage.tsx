@@ -250,7 +250,7 @@ export function ModelsPage() {
 
                 {currentProvider && (
                   <div className="border border-[color:var(--color-edge)] bg-[color:var(--color-deep)]/60 p-4">
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
                       <Info className="h-3.5 w-3.5 text-[color:var(--color-text-mute)]" />
                       <span className="font-pixel text-xs tracking-[0.18em] uppercase">
                         {currentProvider.name}
@@ -269,12 +269,12 @@ export function ModelsPage() {
                       {currentProvider.examples.map((ex) => (
                         <div
                           key={ex.id}
-                          className="flex items-center justify-between text-xs"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1"
                         >
                           <span className="font-mono text-[color:var(--color-text-mute)]">
                             {ex.name}
                           </span>
-                          <code className="font-mono text-[10px] border border-[color:var(--color-edge)] px-2 py-0.5 text-[color:var(--color-text)]">
+                          <code className="font-mono text-[10px] border border-[color:var(--color-edge)] px-2 py-0.5 text-[color:var(--color-text)] break-all">
                             {ex.id}
                           </code>
                         </div>
@@ -330,7 +330,7 @@ export function ModelsPage() {
                   <span className="absolute -bottom-px -left-px h-2 w-2 bg-[color:var(--color-text-dim)]" />
                   <span className="absolute -bottom-px -right-px h-2 w-2 bg-[color:var(--color-text-dim)]" />
 
-                  <div className="relative flex items-start justify-between gap-4">
+                  <div className="relative flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <h3 className="font-pixel text-base tracking-[0.04em] uppercase">
@@ -351,7 +351,7 @@ export function ModelsPage() {
                       </code>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {!m.is_active && (
                         <Button
                           size="sm"

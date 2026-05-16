@@ -139,12 +139,12 @@ export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
               transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.24 }}
               className="group border border-[color:var(--color-edge)] bg-[color:var(--color-surface)]/40 backdrop-blur p-4"
             >
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <Icon className="h-3.5 w-3.5 text-[color:var(--color-text-mute)]" />
                 <span className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
                   {meta.label}
                 </span>
-                <span className="ml-auto font-mono text-[10px] text-[color:var(--color-text-dim)]">
+                <span className="font-mono text-[10px] text-[color:var(--color-text-dim)]">
                   #{msg.sequence_number}
                 </span>
                 <CopyButton text={msg.message} label="Copy message" />

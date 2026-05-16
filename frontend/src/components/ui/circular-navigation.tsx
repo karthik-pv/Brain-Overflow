@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -15,17 +15,36 @@ interface CircularNavigationProps {
   toggleMenu: () => void;
 }
 
+function useNavDimensions() {
+  return useMemo(() => {
+    if (typeof window === "undefined") {
+      return { size: 600, radius: 220, itemSize: 96, centerSize: 72, iconSize: 26, labelSize: 10 };
+    }
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const minDim = Math.min(vw, vh);
+
+    if (minDim < 420) {
+      return { size: 320, radius: 110, itemSize: 64, centerSize: 52, iconSize: 20, labelSize: 8 };
+    }
+    if (minDim < 600) {
+      return { size: 440, radius: 155, itemSize: 76, centerSize: 60, iconSize: 22, labelSize: 9 };
+    }
+    return { size: 600, radius: 220, itemSize: 96, centerSize: 72, iconSize: 26, labelSize: 10 };
+  }, []);
+}
+
 export function CircularNavigation({
   navItems,
   isOpen,
   toggleMenu,
 }: CircularNavigationProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const { size, radius, itemSize, centerSize, iconSize, labelSize } = useNavDimensions();
 
-  const size = 600; // Container size
   const center = size / 2;
-  const radius = 220; // Distance from center to item center
-  const itemSize = 96; // Button size
+  const centerHalf = centerSize / 2;
+  const ringOffset = 40 * (size / 600);
 
   return (
     <AnimatePresence>
@@ -35,7 +54,7 @@ export function CircularNavigation({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[9000] flex items-center justify-center"
+          className="fixed inset-0 z-[9000] flex items-center justify-center overflow-hidden"
           style={{ background: "rgba(4, 5, 10, 0.94)" }}
           onClick={toggleMenu}
         >
@@ -67,10 +86,10 @@ export function CircularNavigation({
             <div
               className="absolute rounded-full"
               style={{
-                width: `${size - 80}px`,
-                height: `${size - 80}px`,
-                left: "40px",
-                top: "40px",
+                width: `${size - ringOffset * 2}px`,
+                height: `${size - ringOffset * 2}px`,
+                left: `${ringOffset}px`,
+                top: `${ringOffset}px`,
                 border: "1px solid rgba(220, 224, 230, 0.04)",
               }}
             />
@@ -88,15 +107,15 @@ export function CircularNavigation({
               }}
             />
 
-            {/* Center close button - perfectly centered */}
+            {/* Center close button */}
             <button
               onClick={toggleMenu}
               className="absolute flex items-center justify-center rounded-full z-20 transition-all duration-300 hover:scale-110"
               style={{
-                width: "72px",
-                height: "72px",
-                left: `${center - 36}px`,
-                top: `${center - 36}px`,
+                width: `${centerSize}px`,
+                height: `${centerSize}px`,
+                left: `${center - centerHalf}px`,
+                top: `${center - centerHalf}px`,
                 background: "rgba(228, 230, 235, 0.95)",
                 color: "#04050a",
                 boxShadow: "0 0 40px rgba(228, 230, 235, 0.25), 0 0 80px rgba(228, 230, 235, 0.1)",
@@ -109,27 +128,26 @@ export function CircularNavigation({
             <div
               className="absolute font-pixel uppercase text-center z-10 pointer-events-none"
               style={{
-                fontSize: "10px",
+                fontSize: `${labelSize}px`,
                 letterSpacing: "0.35em",
                 color: "rgba(228, 230, 235, 0.35)",
                 left: `${center - 80}px`,
-                top: `${center + 50}px`,
+                top: `${center + centerHalf + 14}px`,
                 width: "160px",
               }}
             >
               NAVIGATION
             </div>
 
-            {/* Navigation items - mathematically perfect circle */}
+            {/* Navigation items */}
             {navItems.map((item, index) => {
               const Icon = item.icon;
-              const angleDeg = (360 / navItems.length) * index - 90; // Start from top (-90°)
+              const angleDeg = (360 / navItems.length) * index - 90;
               const angleRad = (angleDeg * Math.PI) / 180;
-              
-              // Calculate exact position from center
+
               const x = center + radius * Math.cos(angleRad) - itemSize / 2;
               const y = center + radius * Math.sin(angleRad) - itemSize / 2;
-              
+
               const isHovered = hoveredItem === item.name;
 
               return (
@@ -168,10 +186,10 @@ export function CircularNavigation({
                   }}
                 >
                   <Icon
-                    className="mb-1.5 transition-transform duration-300"
+                    className="mb-1 transition-transform duration-300"
                     style={{
-                      width: "26px",
-                      height: "26px",
+                      width: `${iconSize}px`,
+                      height: `${iconSize}px`,
                       transform: isHovered ? "scale(1.1)" : "scale(1)",
                     }}
                     strokeWidth={1.5}
@@ -179,7 +197,7 @@ export function CircularNavigation({
                   <span
                     className="font-pixel uppercase"
                     style={{
-                      fontSize: "10px",
+                      fontSize: `${labelSize}px`,
                       letterSpacing: "0.18em",
                       lineHeight: 1.2,
                     }}

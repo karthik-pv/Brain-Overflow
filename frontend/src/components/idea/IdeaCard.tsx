@@ -81,17 +81,17 @@ export function IdeaCard({ idea, onDelete, compact = false, className }: IdeaCar
       <span className="absolute -bottom-px -right-px h-2 w-2 bg-[color:var(--color-text-dim)]" />
 
       <div className="relative">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <span
             className="inline-block h-2 w-2 rounded-full"
             style={{ background: status.tone, boxShadow: `0 0 6px ${status.tone}80` }}
             aria-label={status.label}
           />
-          <span className="font-pixel text-[12px] tracking-[0.18em] uppercase font-bold" style={{ color: status.tone }}>
+          <span className="font-pixel text-[11px] md:text-[12px] tracking-[0.18em] uppercase font-bold" style={{ color: status.tone }}>
             {status.label}
           </span>
           {idea.category && (
-            <span className="font-pixel text-[12px] tracking-[0.18em] uppercase text-[color:var(--color-text-dim)] ml-auto">
+            <span className="font-pixel text-[11px] md:text-[12px] tracking-[0.18em] uppercase text-[color:var(--color-text-dim)]">
               {CATEGORY_LABELS[idea.category]}
             </span>
           )}
@@ -99,21 +99,21 @@ export function IdeaCard({ idea, onDelete, compact = false, className }: IdeaCar
 
         <p
           className={cn(
-            'font-mono text-[16px] leading-relaxed text-[color:var(--color-text)]',
+            'font-mono text-[14px] md:text-[16px] leading-relaxed text-[color:var(--color-text)]',
             compact ? 'line-clamp-2' : 'line-clamp-3',
           )}
         >
           {idea.idea}
         </p>
 
-        <div className="mt-4 flex items-center justify-between">
-          <span className="font-mono text-[12px] text-[color:var(--color-text-dim)]">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <span className="font-mono text-[11px] md:text-[12px] text-[color:var(--color-text-dim)]">
             {formatDate(idea.created_at)}
           </span>
           <div className="flex items-center gap-3">
             {score && (
               <span
-                className="font-pixel text-[12px] tracking-[0.18em] uppercase font-bold"
+                className="font-pixel text-[11px] md:text-[12px] tracking-[0.18em] uppercase font-bold"
                 style={{ color: score.tone }}
               >
                 {score.label}

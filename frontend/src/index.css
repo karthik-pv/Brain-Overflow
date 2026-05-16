@@ -126,6 +126,12 @@
       rgba(255, 255, 255, 0.02) 3px
     );
   }
+
+  @media (hover: none) {
+    .group .group-hover\:opacity-100 {
+      opacity: 1 !important;
+    }
+  }
 }
 
 /* Markdown content (chat responses) */

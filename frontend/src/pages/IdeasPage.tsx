@@ -140,7 +140,7 @@ export function IdeasPage() {
                   {label}
                 </span>
               </div>
-              <p className="mt-2 font-mono text-3xl text-[color:var(--color-text)]">
+              <p className="mt-2 font-mono text-2xl md:text-3xl text-[color:var(--color-text)]">
                 {value}
               </p>
             </div>
