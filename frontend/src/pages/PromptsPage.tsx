@@ -111,7 +111,7 @@ export function PromptsPage() {
         <header className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <MessageSquareText className="h-5 w-5 text-[color:var(--color-text-mute)]" />
-            <h1 className="font-pixel text-2xl tracking-[0.06em]">PROMPTS</h1>
+            <h1 className="font-pixel text-3xl tracking-[0.06em]">PROMPTS</h1>
           </div>
           <Button
             variant="default"
@@ -150,7 +150,7 @@ export function PromptsPage() {
               transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
               className="mb-8 border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/60 backdrop-blur p-6"
             >
-              <h2 className="font-pixel text-sm tracking-[0.2em] uppercase mb-5">
+              <h2 className="font-pixel text-base tracking-[0.2em] uppercase mb-5">
                 {form.id ? 'EDIT_PROMPT' : 'NEW_PROMPT'}
               </h2>
 
@@ -233,11 +233,11 @@ export function PromptsPage() {
 
                   <div className="relative flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-pixel text-sm tracking-[0.04em] uppercase mb-1">
+                      <h3 className="font-pixel text-base tracking-[0.04em] uppercase mb-1">
                         {p.prompt_name}
                       </h3>
                       <div className="mb-3 flex items-center gap-2">
-                        <span className="font-pixel text-[10px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)] border border-[color:var(--color-edge)] px-2 py-0.5">
+                        <span className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)] border border-[color:var(--color-edge)] px-2 py-0.5">
                           {CONTEXT_LABELS[p.context_mode]}
                         </span>
                         <span className="font-mono text-[10px] text-[color:var(--color-text-dim)]">

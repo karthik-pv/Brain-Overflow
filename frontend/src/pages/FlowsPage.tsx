@@ -90,7 +90,7 @@ function SortablePromptItem({
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <span className="font-pixel text-[10px] tracking-widest text-[color:var(--color-text-mute)] w-6">
+      <span className="font-pixel text-[11px] tracking-widest text-[color:var(--color-text-mute)] w-6">
         #{index + 1}
       </span>
       <span className="flex-1 font-mono text-sm">{name}</span>
@@ -244,7 +244,7 @@ export function FlowsPage() {
             <ArrowLeft className="h-3.5 w-3.5" /> back to flows
           </button>
 
-          <h1 className="mb-8 font-pixel text-2xl tracking-[0.06em]">EDIT_FLOW</h1>
+          <h1 className="mb-8 font-pixel text-3xl tracking-[0.06em]">EDIT_FLOW</h1>
 
           {err && (
             <div className="mb-6 font-mono text-xs text-[color:var(--color-weak)] border border-[color:var(--color-weak)]/30 px-3 py-2 flex items-center justify-between">
@@ -257,7 +257,7 @@ export function FlowsPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="border border-[color:var(--color-edge)] bg-[color:var(--color-surface)]/40 backdrop-blur p-5">
-              <h2 className="font-pixel text-[10px] tracking-[0.22em] uppercase text-[color:var(--color-text-mute)] mb-4">
+              <h2 className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)] mb-4">
                 FLOW_SETTINGS
               </h2>
               <div className="space-y-4">
@@ -296,7 +296,7 @@ export function FlowsPage() {
             </div>
 
             <div className="border border-[color:var(--color-edge)] bg-[color:var(--color-surface)]/40 backdrop-blur p-5">
-              <h2 className="font-pixel text-[10px] tracking-[0.22em] uppercase text-[color:var(--color-text-mute)] mb-4">
+              <h2 className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)] mb-4">
                 PROMPT_CHAIN ({editing.prompt_ids.length} step{editing.prompt_ids.length === 1 ? '' : 's'})
               </h2>
               {editing.prompt_ids.length === 0 ? (
@@ -338,7 +338,7 @@ export function FlowsPage() {
           </div>
 
           <div className="mt-6">
-            <h2 className="font-pixel text-[10px] tracking-[0.22em] uppercase text-[color:var(--color-text-mute)] mb-3">
+            <h2 className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)] mb-3">
               AVAILABLE_PROMPTS
             </h2>
             {unused.length === 0 ? (
@@ -386,7 +386,7 @@ export function FlowsPage() {
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Workflow className="h-5 w-5 text-[color:var(--color-text-mute)]" />
-            <h1 className="font-pixel text-2xl tracking-[0.06em]">FLOWS</h1>
+            <h1 className="font-pixel text-3xl tracking-[0.06em]">FLOWS</h1>
           </div>
           <Button
             onClick={() => {
@@ -428,7 +428,7 @@ export function FlowsPage() {
               exit={{ opacity: 0, y: -8 }}
               className="mb-8 border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/60 backdrop-blur p-6"
             >
-              <h2 className="font-pixel text-sm tracking-[0.2em] uppercase mb-5">
+              <h2 className="font-pixel text-base tracking-[0.2em] uppercase mb-5">
                 NEW_FLOW
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -494,11 +494,11 @@ export function FlowsPage() {
                   <div className="relative flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-pixel text-sm tracking-[0.04em] uppercase">
+                        <h3 className="font-pixel text-base tracking-[0.04em] uppercase">
                           {flow.flow_name}
                         </h3>
                         {flow.telegram_command && (
-                          <span className="font-pixel text-[10px] tracking-[0.18em] uppercase text-[color:var(--color-text-mute)] border border-[color:var(--color-edge)] px-2 py-0.5">
+                          <span className="font-pixel text-[11px] tracking-[0.18em] uppercase text-[color:var(--color-text-mute)] border border-[color:var(--color-edge)] px-2 py-0.5">
                             /{flow.telegram_command}
                           </span>
                         )}

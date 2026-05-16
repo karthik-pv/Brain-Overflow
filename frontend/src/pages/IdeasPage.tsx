@@ -136,7 +136,7 @@ export function IdeasPage() {
             >
               <div className="flex items-center gap-2 text-[color:var(--color-text-mute)]">
                 <Icon className="h-3.5 w-3.5" />
-                <span className="font-pixel text-[10px] tracking-[0.2em] uppercase">
+                <span className="font-pixel text-[11px] tracking-[0.2em] uppercase">
                   {label}
                 </span>
               </div>
@@ -192,7 +192,7 @@ export function IdeasPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-24 text-center">
-            <pre className="inline-block font-pixel text-[10px] leading-tight text-[color:var(--color-text-dim)] mb-6">
+            <pre className="inline-block font-pixel text-[11px] leading-tight text-[color:var(--color-text-dim)] mb-6">
 {`┌──────────────────┐
 │   NO_SIGNAL      │
 │   ────────       │

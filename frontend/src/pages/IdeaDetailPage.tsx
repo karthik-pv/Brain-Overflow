@@ -115,7 +115,7 @@ export function IdeaDetailPage() {
 
         {/* Timeline */}
         <div className="mb-8">
-          <h2 className="font-pixel text-[10px] tracking-[0.22em] uppercase text-[color:var(--color-text-mute)] mb-3">
+          <h2 className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)] mb-3">
             EXECUTION_TIMELINE
           </h2>
           <IdeaTimeline idea={idea} messages={messages} />
@@ -123,9 +123,68 @@ export function IdeaDetailPage() {
 
         {/* Chat */}
         <div>
-          <h2 className="font-pixel text-[10px] tracking-[0.22em] uppercase text-[color:var(--color-text-mute)] mb-3">
-            TRANSMISSIONS
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
+              TRANSMISSIONS
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const visible = messages.filter((m) => m.message_type !== 'prompt')
+                  const text = visible
+                    .map((m) => {
+                      const role = m.message_type === 'response' ? 'AI' : 'YOU'
+                      return `${role}:\n${m.message}\n`
+                    })
+                    .join('\n')
+                  navigator.clipboard.writeText(text)
+                }}
+                className="font-pixel text-[10px] tracking-[0.18em] uppercase text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)] border border-[color:var(--color-edge)] px-3 py-1 transition-colors"
+              >
+                Copy All
+              </button>
+              <button
+                onClick={() => {
+                  const visible = messages.filter((m) => m.message_type !== 'prompt')
+                  const lines = [
+                    `# Brain Overflow — Chat Export`,
+                    `**Idea**: ${idea.idea}`,
+                    `**Date**: ${new Date().toLocaleString()}`,
+                    ``,
+                    `---`,
+                    ``,
+                  ]
+                  for (const msg of visible) {
+                    const role = msg.message_type === 'response' ? '**AI:**' : '**YOU:**'
+                    lines.push(role)
+                    lines.push('')
+                    lines.push(msg.message)
+                    lines.push('')
+                  }
+                  const md = lines.join('\n')
+                  const slug = idea.idea.slice(0, 40).replace(/[^a-z0-9]/gi, '_').toLowerCase()
+                  const blob = new Blob([md], { type: 'text/markdown' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `brain-overflow-${slug}.md`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                }}
+                className="font-pixel text-[10px] tracking-[0.18em] uppercase text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)] border border-[color:var(--color-edge)] px-3 py-1 transition-colors"
+              >
+                Export .md
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="font-pixel text-[10px] tracking-[0.18em] uppercase text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)] border border-[color:var(--color-edge)] px-3 py-1 transition-colors"
+              >
+                Export PDF
+              </button>
+            </div>
+          </div>
           <IdeaChat
             ideaId={idea.id}
             idea={idea}

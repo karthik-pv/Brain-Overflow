@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { User, Bot } from 'lucide-react'
+import remarkBreaks from 'remark-breaks'
+import rehypeHighlight from 'rehype-highlight'
+import { User, Bot, Copy, Check, Download, FileText } from 'lucide-react'
 import type { ChatMessage, Idea } from '@/types'
 import { PromptInputBox } from '@/components/ui/ai-prompt-box'
 import { createCustomChatPrompt } from '@/lib/api/prompts'
@@ -20,6 +22,70 @@ const ROLE_META = {
   idea: { label: 'YOU', Icon: User },
   response: { label: 'AI', Icon: Bot },
 } as const
+
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy(e: React.MouseEvent) {
+    e.stopPropagation()
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)]"
+      title={label ?? 'Copy'}
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-[color:var(--color-strong)]" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  )
+}
+
+function buildFullChatText(messages: ChatMessage[]): string {
+  return messages
+    .filter((m) => m.message_type !== 'prompt')
+    .map((m) => {
+      const role = m.message_type === 'response' ? 'AI' : 'YOU'
+      return `${role}:\n${m.message}\n`
+    })
+    .join('\n')
+}
+
+function buildMarkdownExport(idea: Idea, messages: ChatMessage[]): string {
+  const visible = messages.filter((m) => m.message_type !== 'prompt')
+  const lines: string[] = [
+    `# Brain Overflow — Chat Export`,
+    `**Idea**: ${idea.idea}`,
+    `**Date**: ${new Date().toLocaleString()}`,
+    ``,
+    `---`,
+    ``,
+  ]
+  for (const msg of visible) {
+    const role = msg.message_type === 'response' ? '**AI:**' : '**YOU:**'
+    lines.push(role)
+    lines.push('')
+    lines.push(msg.message)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+function downloadFile(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
   const ref = useRef<HTMLDivElement>(null)
@@ -42,6 +108,18 @@ export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
     }
   }
 
+  const handleExportMd = useCallback(() => {
+    const md = buildMarkdownExport(idea, messages)
+    const slug = idea.idea.slice(0, 40).replace(/[^a-z0-9]/gi, '_').toLowerCase()
+    downloadFile(md, `brain-overflow-${slug}.md`, 'text/markdown')
+  }, [idea, messages])
+
+  const handleExportPdf = useCallback(() => {
+    window.print()
+  }, [])
+
+  const fullChatText = buildFullChatText(messages)
+
   return (
     <div className="flex flex-col gap-4">
       <div className="space-y-3">
@@ -59,20 +137,26 @@ export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.24 }}
-              className="border border-[color:var(--color-edge)] bg-[color:var(--color-surface)]/40 backdrop-blur p-4"
+              className="group border border-[color:var(--color-edge)] bg-[color:var(--color-surface)]/40 backdrop-blur p-4"
             >
               <div className="flex items-center gap-2 mb-3">
                 <Icon className="h-3.5 w-3.5 text-[color:var(--color-text-mute)]" />
-                <span className="font-pixel text-[10px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
+                <span className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
                   {meta.label}
                 </span>
                 <span className="ml-auto font-mono text-[10px] text-[color:var(--color-text-dim)]">
                   #{msg.sequence_number}
                 </span>
+                <CopyButton text={msg.message} label="Copy message" />
               </div>
               {msg.message_type === 'response' ? (
                 <div className="prose-os text-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.message}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
+                    rehypePlugins={[rehypeHighlight]}
+                  >
+                    {msg.message}
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <p className="font-mono text-sm whitespace-pre-wrap leading-relaxed">
@@ -92,7 +176,7 @@ export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
               <span className="absolute inline-flex h-full w-full rounded-full bg-[color:var(--color-pivot)] opacity-75 animate-ping" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[color:var(--color-pivot)]" />
             </span>
-            <span className="font-pixel text-[10px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
+            <span className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
               ANALYZING…
             </span>
           </motion.div>

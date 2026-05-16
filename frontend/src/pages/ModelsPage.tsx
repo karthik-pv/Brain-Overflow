@@ -166,7 +166,7 @@ export function ModelsPage() {
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Cpu className="h-5 w-5 text-[color:var(--color-text-mute)]" />
-            <h1 className="font-pixel text-2xl tracking-[0.06em]">MODELS</h1>
+            <h1 className="font-pixel text-3xl tracking-[0.06em]">MODELS</h1>
           </div>
           <Button
             onClick={() => {
@@ -208,7 +208,7 @@ export function ModelsPage() {
               exit={{ opacity: 0, y: -8 }}
               className="mb-8 border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/60 backdrop-blur p-6"
             >
-              <h2 className="font-pixel text-sm tracking-[0.2em] uppercase mb-5">
+              <h2 className="font-pixel text-base tracking-[0.2em] uppercase mb-5">
                 {form.id ? 'EDIT_MODEL' : 'ADD_MODEL'}
               </h2>
 
@@ -333,14 +333,14 @@ export function ModelsPage() {
                   <div className="relative flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h3 className="font-pixel text-sm tracking-[0.04em] uppercase">
+                        <h3 className="font-pixel text-base tracking-[0.04em] uppercase">
                           {m.model_name}
                         </h3>
-                        <span className="font-mono text-[10px] uppercase tracking-widest text-[color:var(--color-text-mute)] border border-[color:var(--color-edge)] px-2 py-0.5">
+                        <span className="font-mono text-[11px] uppercase tracking-widest text-[color:var(--color-text-mute)] border border-[color:var(--color-edge)] px-2 py-0.5">
                           {m.provider}
                         </span>
                         {m.is_active && (
-                          <span className="font-pixel text-[10px] tracking-[0.18em] uppercase text-[color:var(--color-strong)] border border-[color:var(--color-strong)]/40 px-2 py-0.5 flex items-center gap-1">
+                          <span className="font-pixel text-[11px] tracking-[0.18em] uppercase text-[color:var(--color-strong)] border border-[color:var(--color-strong)]/40 px-2 py-0.5 flex items-center gap-1">
                             <Star className="h-3 w-3" />
                             ACTIVE
                           </span>
