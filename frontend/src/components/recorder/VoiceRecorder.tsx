@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { Keyboard, Mic, MicOff } from 'lucide-react'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import { useAudioVisualizer } from '@/hooks/useAudioVisualizer'
-import { AudioVisualizer } from './AudioVisualizer'
+import { AuraVisualizer } from './AuraVisualizer'
 import { IdeateButton } from './IdeateButton'
+import { PearlButton } from '@/components/ui/PearlButton'
 import { createIdea, updateIdeaStatus } from '@/lib/api/ideas'
 import { insertIdeaMessage } from '@/lib/api/chatMessages'
 import { getDefaultFlow } from '@/lib/api/flows'
@@ -104,13 +105,8 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
 
   return (
     <div className="relative flex flex-col items-center gap-7">
-      <div
-        className="relative h-[280px] w-[280px] flex items-center justify-center"
-        style={{
-          background: 'radial-gradient(circle at center, color-mix(in srgb, var(--color-deep) 85%, transparent) 0%, transparent 70%)',
-        }}
-      >
-        <AudioVisualizer
+      <div className="relative h-[280px] w-[280px] flex items-center justify-center">
+        <AuraVisualizer
           frequencyData={frequencyData}
           active={state === 'listening'}
           size={280}
@@ -200,8 +196,7 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
         )}
 
         {state !== 'listening' && state !== 'analyzing' && state !== 'captured' && (
-          <button
-            type="button"
+          <PearlButton
             onClick={() => {
               setShowManual((v) => !v)
               if (!showManual) {
@@ -209,11 +204,10 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
                 setManualText('')
               }
             }}
-            className="flex items-center gap-2 font-mono text-sm text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)] transition-colors"
           >
-            <Keyboard className="h-4 w-4" />
-            {showManual ? 'hide keyboard' : 'type instead'}
-          </button>
+            <Keyboard className="h-3.5 w-3.5" />
+            <span className="font-mono">{showManual ? 'hide keyboard' : 'type instead'}</span>
+          </PearlButton>
         )}
 
         {error && (

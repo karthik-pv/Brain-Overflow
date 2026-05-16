@@ -17,14 +17,14 @@ export function QuoteFooter() {
   const [idx, setIdx] = useState(() => Math.floor(Math.random() * QUOTES.length))
   const quote = QUOTES[idx]
   const { output, done } = useTypewriter(quote.text, {
-    speedMs: 50,
-    pauseMs: 6000,
-    startDelayMs: 600,
+    speedMs: 38,
+    pauseMs: 2200,
+    startDelayMs: 400,
   })
 
   useEffect(() => {
     if (!done) return
-    const t = window.setTimeout(() => setIdx((i) => pickQuote(i)), 800)
+    const t = window.setTimeout(() => setIdx((i) => pickQuote(i)), 300)
     return () => window.clearTimeout(t)
   }, [done])
 
@@ -36,7 +36,7 @@ export function QuoteFooter() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
+          transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
           className="relative"
         >
           <Quote
@@ -49,16 +49,12 @@ export function QuoteFooter() {
               {output}
               {!done && <span className="blink-cursor" />}
             </p>
-            {done && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.4 }}
-                className="mt-2 text-[11px] font-pixel uppercase tracking-[0.2em] text-[color:var(--color-text-dim)]"
-              >
-                — {quote.cite}
-              </motion.div>
-            )}
+            <div
+              className="mt-1.5 text-[11px] font-pixel uppercase tracking-[0.2em] transition-opacity duration-500"
+              style={{ color: 'var(--color-text-mute)', opacity: done ? 1 : 0.55 }}
+            >
+              — {quote.cite}
+            </div>
           </blockquote>
         </motion.div>
       </AnimatePresence>
