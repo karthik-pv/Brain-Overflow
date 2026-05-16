@@ -11,7 +11,7 @@ export function BackgroundLayer({ intense }: Props) {
   const heavy = intense ?? isLanding
 
   return (
-    <div className="fixed inset-0 -z-10 pointer-events-none">
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
       <div
         className="absolute inset-0"
         style={{
