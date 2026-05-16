@@ -45,7 +45,7 @@ export function QuoteFooter() {
             aria-hidden
           />
           <blockquote className="pl-5">
-            <p className="text-[13px] italic font-mono text-[color:var(--color-text-mute)] leading-relaxed">
+            <p className="text-[15px] italic font-mono text-[color:var(--color-text-mute)] leading-relaxed">
               {output}
               {!done && <span className="blink-cursor" />}
             </p>
@@ -54,7 +54,7 @@ export function QuoteFooter() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.4 }}
-                className="mt-2 text-[10px] font-pixel uppercase tracking-[0.2em] text-[color:var(--color-text-dim)]"
+                className="mt-2 text-[11px] font-pixel uppercase tracking-[0.2em] text-[color:var(--color-text-dim)]"
               >
                 — {quote.cite}
               </motion.div>

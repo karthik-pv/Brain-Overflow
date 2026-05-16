@@ -64,7 +64,7 @@ export function IdeaCard({ idea, onDelete, compact = false, className }: IdeaCar
       onClick={() => navigate(`/idea/${idea.id}`)}
       className={cn(
         'group relative cursor-pointer overflow-hidden border border-[color:var(--color-edge)]',
-        'bg-[color:var(--color-surface)]/60 backdrop-blur-md p-5',
+        'bg-[color:var(--color-surface)]/60 backdrop-blur-md p-6',
         'transition-[transform,border-color] duration-200',
         'hover:-translate-y-0.5 hover:border-[color:var(--color-edge-glow)]',
         className,
@@ -87,11 +87,11 @@ export function IdeaCard({ idea, onDelete, compact = false, className }: IdeaCar
             style={{ background: status.tone, boxShadow: `0 0 6px ${status.tone}80` }}
             aria-label={status.label}
           />
-          <span className="font-pixel text-[10px] tracking-[0.18em] uppercase" style={{ color: status.tone }}>
+          <span className="font-pixel text-[11px] tracking-[0.18em] uppercase font-bold" style={{ color: status.tone }}>
             {status.label}
           </span>
           {idea.category && (
-            <span className="font-pixel text-[10px] tracking-[0.18em] uppercase text-[color:var(--color-text-dim)] ml-auto">
+            <span className="font-pixel text-[11px] tracking-[0.18em] uppercase text-[color:var(--color-text-dim)] ml-auto">
               {CATEGORY_LABELS[idea.category]}
             </span>
           )}
@@ -99,7 +99,7 @@ export function IdeaCard({ idea, onDelete, compact = false, className }: IdeaCar
 
         <p
           className={cn(
-            'font-mono text-sm leading-relaxed text-[color:var(--color-text)]',
+            'font-mono text-[15px] leading-relaxed text-[color:var(--color-text)]',
             compact ? 'line-clamp-2' : 'line-clamp-3',
           )}
         >
@@ -107,13 +107,13 @@ export function IdeaCard({ idea, onDelete, compact = false, className }: IdeaCar
         </p>
 
         <div className="mt-4 flex items-center justify-between">
-          <span className="font-mono text-[10px] text-[color:var(--color-text-dim)]">
+          <span className="font-mono text-[11px] text-[color:var(--color-text-dim)]">
             {formatDate(idea.created_at)}
           </span>
           <div className="flex items-center gap-3">
             {score && (
               <span
-                className="font-pixel text-[10px] tracking-[0.18em] uppercase"
+                className="font-pixel text-[11px] tracking-[0.18em] uppercase font-bold"
                 style={{ color: score.tone }}
               >
                 {score.label}

@@ -104,7 +104,12 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
 
   return (
     <div className="relative flex flex-col items-center gap-7">
-      <div className="relative h-[280px] w-[280px] flex items-center justify-center">
+      <div
+        className="relative h-[280px] w-[280px] flex items-center justify-center"
+        style={{
+          background: 'radial-gradient(circle at center, color-mix(in srgb, var(--color-deep) 85%, transparent) 0%, transparent 70%)',
+        }}
+      >
         <AudioVisualizer
           frequencyData={frequencyData}
           active={state === 'listening'}
@@ -204,9 +209,9 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
                 setManualText('')
               }
             }}
-            className="flex items-center gap-2 font-mono text-xs text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)] transition-colors"
+            className="flex items-center gap-2 font-mono text-sm text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)] transition-colors"
           >
-            <Keyboard className="h-3 w-3" />
+            <Keyboard className="h-4 w-4" />
             {showManual ? 'hide keyboard' : 'type instead'}
           </button>
         )}

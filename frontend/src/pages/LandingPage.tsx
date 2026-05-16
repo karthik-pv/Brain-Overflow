@@ -19,12 +19,13 @@ export function LandingPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-          className="text-center mb-12"
+          className="text-center mb-12 relative"
         >
+          <div className="absolute inset-x-[-3rem] inset-y-[-2rem] bg-[color:var(--color-void)]/50 backdrop-blur-sm -z-10 rounded-sm" />
           <h1 className="font-pixel text-[clamp(2rem,5vw,3.4rem)] leading-[1.05] tracking-[0.06em] text-[color:var(--color-text)] blink-cursor">
             BRAIN_OVERFLOW
           </h1>
-          <p className="mt-4 font-mono text-sm text-[color:var(--color-text-mute)] max-w-xl mx-auto">
+          <p className="mt-4 font-mono text-base text-[color:var(--color-text)] opacity-80 max-w-xl mx-auto">
             an abandoned operating system for thinkers and dreamers.
             <br />
             speak an idea — the machine remembers.
