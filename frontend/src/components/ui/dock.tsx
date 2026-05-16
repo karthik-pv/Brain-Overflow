@@ -72,8 +72,8 @@ export default function HeroDock() {
 
 export function Dock({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="relative flex items-center gap-2 sm:gap-4 scale-90 sm:scale-95">
-      <div className="flex items-center gap-3 rounded-[28px] bg-neutral-900/80 px-3 py-2 shadow-2xl ring-1 ring-white/10 backdrop-blur-lg sm:gap-5 sm:rounded-[48px] sm:px-6 sm:py-3">
+    <div className="relative flex items-center gap-3 sm:gap-5">
+      <div className="flex items-center gap-4 rounded-[32px] bg-neutral-900/80 px-4 py-3 shadow-2xl ring-1 ring-white/10 backdrop-blur-lg sm:gap-6 sm:rounded-[52px] sm:px-8 sm:py-4">
         {children ?? (
           <>
             <DockIcon icon={Home} label="Home" />
@@ -82,7 +82,7 @@ export function Dock({ children }: { children?: React.ReactNode }) {
             <DockIcon icon={Bookmark} label="Saved" />
             <DockIcon icon={ImageIcon} label="Media" />
             <DockIcon icon={Telescope} label="Discover" />
-            <span className="mx-1 hidden h-6 w-px bg-white/10 sm:block" aria-hidden="true" />
+            <span className="mx-1 hidden h-8 w-px bg-white/10 sm:block" aria-hidden="true" />
             <DockIcon icon={Search} label="Search" />
             <DockIcon icon={Cog} label="Settings" />
           </>
@@ -109,22 +109,22 @@ export function DockIcon({
 }) {
   const inner = (
     <>
-      <Icon className="h-5 w-5 text-white/85 transition-transform duration-200 group-hover:scale-110" strokeWidth={2.1} />
+      <Icon className="h-6 w-6 text-white/85 transition-transform duration-200 group-hover:scale-110" strokeWidth={2.1} />
       {badge ? (
-        <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-[10px] font-semibold text-neutral-900 ring-1 ring-white/80 sm:h-5 sm:w-5 sm:text-[10px]">
+        <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-[10px] font-semibold text-neutral-900 ring-1 ring-white/80 sm:h-6 sm:w-6 sm:text-[11px]">
           {badge}
         </span>
       ) : null}
-      <span className="tooltip pointer-events-none absolute -bottom-6 translate-y-1/2 text-[9px] tracking-wide text-white/70 sm:text-[10px] font-pixel">
+      <span className="tooltip pointer-events-none absolute -bottom-7 translate-y-1/2 text-[10px] tracking-wide text-white/70 sm:text-xs font-pixel">
         {label}
       </span>
       {active && (
-        <span className="pointer-events-none absolute -bottom-1 left-1/2 h-px w-6 -translate-x-1/2 bg-white/90" />
+        <span className="pointer-events-none absolute -bottom-1 left-1/2 h-px w-8 -translate-x-1/2 bg-white/90" />
       )}
     </>
   )
 
-  const cls = "hover-halo group relative grid h-12 w-12 place-items-center rounded-xl ring-1 ring-white/10 bg-gradient-to-b from-neutral-800/60 to-neutral-900/70 backdrop-blur-xl shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:scale-[1.05] sm:h-14 sm:w-14"
+  const cls = "hover-halo group relative grid h-14 w-14 place-items-center rounded-xl ring-1 ring-white/10 bg-gradient-to-b from-neutral-800/60 to-neutral-900/70 backdrop-blur-xl shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:scale-[1.05] sm:h-16 sm:w-16"
 
   if (as === "a") {
     return (

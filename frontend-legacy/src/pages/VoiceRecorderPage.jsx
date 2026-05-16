@@ -60,7 +60,7 @@ export default function VoiceRecorderPage() {
             Brain Overflow
           </h1>
           <p className="text-base md:text-lg max-w-xl mx-auto leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-            Speak your startup idea. Our AI will pressure-test it using the Paul Graham framework.
+            Speak your idea. Our AI will pressure-test it using the Paul Graham framework.
           </p>
         </motion.div>
 

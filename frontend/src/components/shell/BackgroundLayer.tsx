@@ -11,7 +11,7 @@ export function BackgroundLayer({ intense }: Props) {
   const heavy = intense ?? isLanding
 
   return (
-    <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+    <div className="fixed inset-0 -z-10 pointer-events-none">
       <div
         className="absolute inset-0"
         style={{
@@ -20,7 +20,7 @@ export function BackgroundLayer({ intense }: Props) {
         }}
       >
         <Dithering
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', display: 'block' }}
           colorBack="hsl(0, 0%, 0%)"
           colorFront="hsl(320, 100%, 70%)"
           {...({ shape: 'cat' } as any)}

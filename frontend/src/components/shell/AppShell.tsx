@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ProcessingProvider } from '@/hooks/useProcessingPulse'
 import { BackgroundLayer } from './BackgroundLayer'
-import { AppDock } from './AppDock'
+import { CircularNav } from './CircularNav'
 import { BootSequence } from './BootSequence'
 import { AlertStack } from './AlertStack'
 import { QuoteFooter } from './QuoteFooter'
@@ -55,7 +55,7 @@ export function AppShell({ children }: Props) {
         </AnimatePresence>
         {showQuote && <QuoteFooter />}
         <AlertStack />
-        <AppDock />
+        <CircularNav />
       </div>
       {!booted && <BootSequence onReady={() => setBooted(true)} />}
     </ProcessingProvider>

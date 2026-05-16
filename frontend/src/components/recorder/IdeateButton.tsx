@@ -9,7 +9,7 @@ interface Props {
 }
 
 const LABEL: Record<IdeateState, { idle: string; active: string }> = {
-  idle: { idle: 'SPEAK', active: 'SPEAK' },
+  idle: { idle: 'IDEATE', active: 'SPEAK' },
   recording: { idle: 'LISTENING', active: 'LISTENING' },
   analyzing: { idle: 'IDEATING', active: 'IDEATING' },
 }
