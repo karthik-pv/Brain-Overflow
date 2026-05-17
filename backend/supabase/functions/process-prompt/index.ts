@@ -216,6 +216,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   let rawContent = ''
   let succeeded = false
   let tokensUsed = 0
+  let lastError = ''
 
   for (let attempt = 1; attempt <= effectiveProfile.max_retries; attempt++) {
     const messages: any[] = [
@@ -279,15 +280,17 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
       }
 
     } catch (err: any) {
+      lastError = err?.message ?? String(err)
       logError({ ...ctx, attempt }, err, `Attempt ${attempt} failed`)
       if (attempt === effectiveProfile.max_retries) break
     }
   }
 
   if (!succeeded) {
+    const debugContent = rawContent || `[ERROR: ${lastError}]`
     await supabase.from('chat_messages').insert([
       { idea_id, message: prompt.prompt, message_type: 'prompt', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) },
-      { idea_id, message: rawContent, message_type: 'response', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
+      { idea_id, message: debugContent, message_type: 'response', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
     ])
     await supabase.from('ideas').update({ status: 'failed' }).eq('id', idea_id)
     throw new Error(`Failed after ${effectiveProfile.max_retries} attempts`)
