@@ -17,14 +17,14 @@
 // Each invocation is stateless — everything comes from the DB.
 // ============================================================
 
-import { createServiceClient }   from '../_shared/db.ts'
+import { createServiceClient } from '../_shared/db.ts'
 import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts'
-import { log, logError }         from '../_shared/log.ts'
-import * as fireworks            from '../_shared/providers/fireworks.ts'
-import * as openai               from '../_shared/providers/openai.ts'
-import * as anthropic            from '../_shared/providers/anthropic.ts'
-import * as gemini               from '../_shared/providers/gemini.ts'
-import * as groq                 from '../_shared/providers/groq.ts'
+import { log, logError } from '../_shared/log.ts'
+import * as fireworks from '../_shared/providers/fireworks.ts'
+import * as openai from '../_shared/providers/openai.ts'
+import * as anthropic from '../_shared/providers/anthropic.ts'
+import * as gemini from '../_shared/providers/gemini.ts'
+import * as groq from '../_shared/providers/groq.ts'
 import { loadModelProfile, computeOutputBudget, type ModelProfile } from '../_shared/model-profiles.ts'
 import {
   stripReasoning,
@@ -45,7 +45,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   catch { return errorResponse('Invalid JSON body', 400) }
 
   const { idea_id, prompt_index, custom_prompt_id, run_id } = body
-  if (!idea_id)              return errorResponse('Missing idea_id', 400)
+  if (!idea_id) return errorResponse('Missing idea_id', 400)
 
   const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id }
 
@@ -62,7 +62,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_id?: string, run_id?: string): Promise<void> {
   const supabase = createServiceClient()
-  const ctx      = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id }
+  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id }
 
   // 1. Load idea
   const { data: idea, error: ideaErr } = await supabase
@@ -344,6 +344,11 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
         error_message: lastError,
         validation_state: 'invalid',
       }).eq('id', run_id)
+      // Also mark the idea itself as failed so the frontend stops polling
+      await supabase.from('ideas')
+        .update({ status: 'failed' })
+        .eq('id', idea_id)
+        .eq('latest_run_id', run_id)
     } else {
       await supabase.from('ideas').update({ status: 'failed' }).eq('id', idea_id)
     }
@@ -447,12 +452,12 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     log(ctx, 'Chain complete — idea completed')
   } else {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
     const nextCall = fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
-      method:  'POST',
+      method: 'POST',
       headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ idea_id, prompt_index: prompt_index + 1, run_id }),
+      body: JSON.stringify({ idea_id, prompt_index: prompt_index + 1, run_id }),
     }).then(r => {
       if (!r.ok) r.text().then(t =>
         logError(ctx, new Error(`Next invoke failed: ${r.status} ${t}`))
@@ -540,15 +545,15 @@ Do NOT wrap in markdown code fences. Return raw JSON only.`
 // Routes to the correct provider based on model.provider string
 async function callProvider(
   provider: string,
-  modelId:  string,
+  modelId: string,
   messages: any[],
   options: { temperature: number; maxTokens: number; apiKey: string },
 ): Promise<{ content: string; outputTokens: number }> {
   const params = { modelId, messages, temperature: options.temperature, maxTokens: options.maxTokens, apiKey: options.apiKey }
-  if (provider === 'openai')    return openai.generateCompletion(params)
+  if (provider === 'openai') return openai.generateCompletion(params)
   if (provider === 'anthropic') return anthropic.generateCompletion(params)
-  if (provider === 'gemini')    return gemini.generateCompletion(params)
-  if (provider === 'groq')      return groq.generateCompletion(params)
+  if (provider === 'gemini') return gemini.generateCompletion(params)
+  if (provider === 'groq') return groq.generateCompletion(params)
   return fireworks.generateCompletion(params)
 }
 

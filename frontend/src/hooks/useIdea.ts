@@ -18,6 +18,7 @@ export function useIdea(id: string | undefined) {
       setIdea(ideaRow)
       setMessages(msgs)
       setError('')
+      return ideaRow
     } catch (e) {
       if (!mountedRef.current) return
       setError(e instanceof Error ? e.message : 'Failed to load idea')
@@ -37,11 +38,15 @@ export function useIdea(id: string | undefined) {
 
   useEffect(() => {
     if (!idea || idea.status !== 'processing') return
-    const tid = window.setInterval(() => {
-      if (!document.hidden) fetchAll()
-    }, 2000)
+    const tid = window.setInterval(async () => {
+      if (document.hidden) return
+      const updatedIdea = await fetchAll()
+      if (updatedIdea && updatedIdea.status !== 'processing') {
+        window.clearInterval(tid)
+      }
+    }, 3000)
     return () => window.clearInterval(tid)
-  }, [idea, fetchAll])
+  }, [idea?.id, idea?.status, fetchAll])
 
   return { idea, messages, loading, error, refetch: fetchAll }
 }
