@@ -141,14 +141,17 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
 
   log(ctx, `Running prompt '${prompt.prompt_name}'`)
 
-  // 4. Load all prior chat_messages
+  // 4. Load all prior chat_messages (global for sequence numbering)
   const { data: allMessages } = await supabase
     .from('chat_messages')
-    .select('message_type, message, sequence_number')
+    .select('message_type, message, sequence_number, run_id')
     .eq('idea_id', idea_id)
     .order('sequence_number', { ascending: true })
 
-  let contextMessages = allMessages ?? []
+  // Context is scoped to the current run when run_id is set, preventing cross-run context bleed
+  const contextMessages = run_id
+    ? (allMessages ?? []).filter(m => m.run_id === run_id || m.message_type === 'idea')
+    : (allMessages ?? [])
 
   // 5. Build ONE explicit user message based on context_mode
   let finalInput = prompt.prompt
@@ -203,8 +206,8 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
 
   if (!model) throw new Error('No model configured — add a model in the dashboard')
 
-  // Transition run from queued → processing (atomic guard against duplicate invocations)
-  if (run_id) {
+  // Transition run from queued → processing (only on first step — subsequent steps are already 'processing')
+  if (run_id && (prompt_index ?? 0) === 0) {
     const { data: updatedRuns } = await supabase
       .from('idea_runs')
       .update({ status: 'processing' })
@@ -374,11 +377,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   if (insertErr) throw new Error(`Failed to store messages: ${insertErr.message}`)
 
   // 12. Update idea with latest category/score (upserts on every step)
-  const stepValidationState = !succeeded
-    ? 'invalid'
-    : attemptsTaken > 1
-    ? 'recovered'
-    : 'valid'
+  const stepValidationState = attemptsTaken > 1 ? 'recovered' : 'valid'
 
   if (run_id) {
     await supabase.from('idea_runs').update({
@@ -432,12 +431,6 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
         .eq('run_id', run_id)
       const totalTokens = msgs?.reduce((s, m) => s + (m.tokens_used ?? 0), 0) ?? 0
 
-      const { data: runData } = await supabase
-        .from('idea_runs')
-        .select('category, score')
-        .eq('id', run_id)
-        .single()
-
       await supabase.from('idea_runs').update({
         status: 'completed',
         total_tokens: totalTokens,
@@ -445,7 +438,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
       }).eq('id', run_id)
 
       await supabase.from('ideas')
-        .update({ category: runData?.category, score: runData?.score, status: 'completed' })
+        .update({ category, score, status: 'completed' })
         .eq('id', idea_id)
         .eq('latest_run_id', run_id)
     } else {
