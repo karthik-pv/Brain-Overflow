@@ -80,7 +80,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const trigger = fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
       method: 'POST',
-      headers: { apikey: serviceKey, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ idea_id, prompt_index: 0, run_id }),
     }).then(r => {
       if (!r.ok) r.text().then(t =>
