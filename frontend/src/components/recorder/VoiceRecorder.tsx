@@ -53,7 +53,9 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
     listFlows().then(f => {
       setFlows(f)
       if (f.length > 0) setSelectedFlowId(f[0].id)
-    }).catch(() => {})
+    }).catch((e) => {
+      setError(e instanceof Error ? e.message : 'Failed to load flows')
+    })
   }, [])
 
   const handleStart = useCallback(async () => {
@@ -233,6 +235,7 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
             <Select
               value={selectedFlowId}
               onValueChange={setSelectedFlowId}
+              disabled={state === 'analyzing' || state === 'captured'}
             >
               <SelectTrigger className="h-7 text-xs font-mono border-[color:var(--color-edge)] bg-transparent w-[160px]">
                 <SelectValue />
