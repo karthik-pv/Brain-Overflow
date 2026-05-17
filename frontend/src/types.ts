@@ -52,7 +52,7 @@ export interface Flow {
   created_at: string
 }
 
-export type Provider = 'fireworks' | 'openai' | 'anthropic'
+export type Provider = string // Allow dynamically added providers
 
 export interface Model {
   id: string

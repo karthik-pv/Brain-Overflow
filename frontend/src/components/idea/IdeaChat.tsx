@@ -184,12 +184,12 @@ export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
         <div ref={ref} />
       </div>
 
-      {!isProcessing && visible.length > 0 && (
+      {/* {!isProcessing && visible.length > 0 && (
         <PromptInputBox
           placeholder="continue the thought…"
           onSend={(msg) => handleSend(msg)}
         />
-      )}
+      )} */}
     </div>
   )
 }

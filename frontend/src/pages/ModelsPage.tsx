@@ -31,54 +31,11 @@ import {
 } from '@/lib/api/models'
 import type { Model, Provider } from '@/types'
 
-interface ProviderInfo {
-  name: string
-  description: string
-  modelFormat: string
-  examples: Array<{ name: string; id: string }>
-  docs: string
-}
-
-const PROVIDER_CONFIG: Record<Provider, ProviderInfo> = {
-  fireworks: {
-    name: 'Fireworks AI',
-    description: 'Serverless inference for open-source models',
-    modelFormat: 'accounts/fireworks/models/{model-name}',
-    examples: [
-      { name: 'Llama 3.1 70B', id: 'accounts/fireworks/models/llama-v3p1-70b-instruct' },
-      { name: 'Llama 3.1 8B', id: 'accounts/fireworks/models/llama-v3p1-8b-instruct' },
-      { name: 'Mixtral 8x7B', id: 'accounts/fireworks/models/mixtral-8x7b-instruct' },
-    ],
-    docs: 'https://fireworks.ai/models',
-  },
-  openai: {
-    name: 'OpenAI',
-    description: 'GPT models via OpenAI API',
-    modelFormat: '{model-name}',
-    examples: [
-      { name: 'GPT-4o', id: 'gpt-4o' },
-      { name: 'GPT-4o Mini', id: 'gpt-4o-mini' },
-      { name: 'GPT-3.5 Turbo', id: 'gpt-3.5-turbo' },
-    ],
-    docs: 'https://platform.openai.com/docs/models',
-  },
-  anthropic: {
-    name: 'Anthropic',
-    description: 'Claude models via Anthropic API',
-    modelFormat: '{model-name}',
-    examples: [
-      { name: 'Claude 3.5 Sonnet', id: 'claude-3-5-sonnet-20241022' },
-      { name: 'Claude 3 Haiku', id: 'claude-3-haiku-20240307' },
-    ],
-    docs: 'https://docs.anthropic.com/en/docs/about-claude/models',
-  },
-}
-
 interface FormState {
   id?: string
   model_name: string
   model_id: string
-  provider: Provider
+  provider: string
 }
 
 const BLANK: FormState = { model_name: '', model_id: '', provider: 'fireworks' }
@@ -158,8 +115,6 @@ export function ModelsPage() {
     }
   }
 
-  const currentProvider = form ? PROVIDER_CONFIG[form.provider] : null
-
   return (
     <div className="relative min-h-[100dvh] pt-20 pb-32 px-4 md:px-8">
       <div className="mx-auto max-w-4xl">
@@ -224,72 +179,22 @@ export function ModelsPage() {
                 </div>
                 <div>
                   <Label>PROVIDER</Label>
-                  <Select
+                  <Input
                     value={form.provider}
-                    onValueChange={(v) => setForm({ ...form, provider: v as Provider })}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fireworks">Fireworks AI</SelectItem>
-                      <SelectItem value="openai">OpenAI</SelectItem>
-                      <SelectItem value="anthropic">Anthropic</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                    placeholder="e.g. fireworks, openai, anthropic, gemini, groq"
+                    className="mt-2 text-sm"
+                  />
                 </div>
                 <div>
                   <Label>MODEL_ID</Label>
                   <Input
                     value={form.model_id}
                     onChange={(e) => setForm({ ...form, model_id: e.target.value })}
-                    placeholder={currentProvider?.modelFormat ?? 'model-id'}
+                    placeholder="model-id"
                     className="mt-2"
                   />
                 </div>
-
-                {currentProvider && (
-                  <div className="border border-[color:var(--color-edge)] bg-[color:var(--color-deep)]/60 p-4">
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <Info className="h-3.5 w-3.5 text-[color:var(--color-text-mute)]" />
-                      <span className="font-pixel text-xs tracking-[0.18em] uppercase">
-                        {currentProvider.name}
-                      </span>
-                      <span className="font-mono text-[10px] text-[color:var(--color-text-dim)]">
-                        {currentProvider.description}
-                      </span>
-                    </div>
-                    <p className="mb-3 font-mono text-xs text-[color:var(--color-text-mute)]">
-                      format:{' '}
-                      <code className="text-[color:var(--color-text)]">
-                        {currentProvider.modelFormat}
-                      </code>
-                    </p>
-                    <div className="space-y-1.5">
-                      {currentProvider.examples.map((ex) => (
-                        <div
-                          key={ex.id}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1"
-                        >
-                          <span className="font-mono text-[color:var(--color-text-mute)]">
-                            {ex.name}
-                          </span>
-                          <code className="font-mono text-[10px] border border-[color:var(--color-edge)] px-2 py-0.5 text-[color:var(--color-text)] break-all">
-                            {ex.id}
-                          </code>
-                        </div>
-                      ))}
-                    </div>
-                    <a
-                      href={currentProvider.docs}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-block font-mono text-[10px] text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)] underline-offset-2 hover:underline"
-                    >
-                      view all {currentProvider.name} models →
-                    </a>
-                  </div>
-                )}
               </div>
 
               <div className="mt-6 flex gap-3">

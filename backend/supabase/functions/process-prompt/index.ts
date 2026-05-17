@@ -23,9 +23,11 @@ import { log, logError }         from '../_shared/log.ts'
 import * as fireworks            from '../_shared/providers/fireworks.ts'
 import * as openai               from '../_shared/providers/openai.ts'
 import * as anthropic            from '../_shared/providers/anthropic.ts'
+import * as gemini               from '../_shared/providers/gemini.ts'
+import * as groq                 from '../_shared/providers/groq.ts'
 
 const FN              = 'process-prompt'
-const MAX_TOKENS      = 4096
+const MAX_TOKENS      = 8192
 const TEMPERATURE     = 0.7
 
 const VALID_CATEGORIES = ['startup_idea', 'automation', 'personal_tool', 'dev_tool', 'other'] as const
@@ -323,5 +325,7 @@ async function callProvider(
   const params = { modelId, messages, temperature: TEMPERATURE, maxTokens: MAX_TOKENS, apiKey }
   if (provider === 'openai')    return openai.generateCompletion(params)
   if (provider === 'anthropic') return anthropic.generateCompletion(params)
+  if (provider === 'gemini')    return gemini.generateCompletion(params)
+  if (provider === 'groq')      return groq.generateCompletion(params)
   return fireworks.generateCompletion(params)  // default
 }
