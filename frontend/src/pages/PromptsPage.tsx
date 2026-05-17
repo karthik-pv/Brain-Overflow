@@ -88,7 +88,7 @@ export function PromptsPage() {
           prompt: form.prompt,
           context_mode: form.context_mode,
           use_system_format: form.use_system_format,
-          custom_schema: form.custom_schema,
+          custom_schema: form.use_system_format ? null : form.custom_schema,
         })
       } else {
         await createPrompt({
@@ -96,7 +96,7 @@ export function PromptsPage() {
           prompt: form.prompt,
           context_mode: form.context_mode,
           use_system_format: form.use_system_format,
-          custom_schema: form.custom_schema,
+          custom_schema: form.use_system_format ? null : form.custom_schema,
         })
       }
       setForm(null)
@@ -217,11 +217,12 @@ export function PromptsPage() {
                 {!form.use_system_format && (
                   <div className="mt-4">
                     <Label>CUSTOM SCHEMA</Label>
-                    <textarea
+                    <Textarea
                       value={form.custom_schema || ''}
                       onChange={(e) => setForm({ ...form, custom_schema: e.target.value })}
                       placeholder="Enter custom output format instructions..."
-                      className="mt-2 w-full h-32 bg-[color:var(--color-surface)] border border-[color:var(--color-edge)] p-3 font-mono text-sm"
+                      rows={5}
+                      className="mt-2 font-mono"
                     />
                   </div>
                 )}
