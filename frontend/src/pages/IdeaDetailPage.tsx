@@ -56,8 +56,7 @@ export function IdeaDetailPage() {
         setSelectedRunId(fetchedRuns[0].id)
       }
     }).catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idea?.id])
+  }, [idea?.id, runIdParam])
 
   useEffect(() => {
     if (!idea?.id) return
@@ -77,8 +76,7 @@ export function IdeaDetailPage() {
           if (payload.eventType === 'INSERT') {
             setRuns(prev => {
               const incoming = payload.new as IdeaRun
-              const exists = prev.some(r => r.id === incoming.id)
-              if (exists) return prev.map(r => r.id === incoming.id ? incoming : r)
+              if (prev.some(r => r.id === incoming.id)) return prev
               return [incoming, ...prev]
             })
           } else if (payload.eventType === 'UPDATE') {
@@ -95,7 +93,7 @@ export function IdeaDetailPage() {
 
   function handleRunSelect(runId: string) {
     setSelectedRunId(runId)
-    setSearchParams({ run: runId })
+    setSearchParams(prev => { prev.set('run', runId); return prev })
   }
 
   if (loading && !idea) {
@@ -247,7 +245,7 @@ export function IdeaDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => {
-                    const visible = messages.filter((m) => m.message_type !== 'prompt')
+                    const visible = displayedMessages.filter((m) => m.message_type !== 'prompt')
                     const text = visible
                       .map((m) => {
                         const role = m.message_type === 'response' ? 'AI' : 'YOU'
@@ -262,7 +260,7 @@ export function IdeaDetailPage() {
                 </button>
                 <button
                   onClick={() => {
-                    const visible = messages.filter((m) => m.message_type !== 'prompt')
+                    const visible = displayedMessages.filter((m) => m.message_type !== 'prompt')
                     const lines = [
                       `# Brain Overflow — Chat Export`,
                       `**Idea**: ${idea.idea}`,
