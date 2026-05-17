@@ -14,6 +14,7 @@ export interface Idea {
   score: IdeaScore | null
   flow_id: string | null
   status: IdeaStatus
+  latest_run_id: string | null
   telegram_chat_id: string | null
   telegram_message_id: string | null
   created_at: string
@@ -30,6 +31,7 @@ export interface ChatMessage {
   sequence_number: number
   reasoning_content: string | null
   tokens_used: number | null
+  run_id: string | null
   created_at: string
 }
 
@@ -65,6 +67,23 @@ export interface Model {
   provider: Provider
   is_active: boolean
   created_at: string
+}
+
+export interface IdeaRun {
+  id: string
+  idea_id: string
+  flow_id: string | null
+  model_id: string | null
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'partial'
+  category: IdeaCategory | null
+  score: IdeaScore | null
+  validation_state: 'valid' | 'recovered' | 'partial' | 'invalid'
+  total_tokens: number
+  error_message: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  flow?: { flow_name: string }
 }
 
 export interface ModelProfile {
