@@ -7,8 +7,8 @@
 //   2.  Load flow + prompt list
 //   3.  Get prompt at prompt_index
 //   4.  Load all prior chat_messages for accumulated context
-//   5.  Call LLM with full history + current prompt
-//   6.  Validate JSON response (retry up to 3x)
+//   5.  PREPARE: load model profile + schema, build system prompt
+//   6.  CALL LLM → NORMALIZE → VALIDATE (with retry)
 //   7.  Store: prompt (role='system') + response (role='assistant')
 //   8.  Update idea category/score from parsed response
 //   9.  If next prompt exists → invoke process-prompt(prompt_index+1)
@@ -25,24 +25,17 @@ import * as openai               from '../_shared/providers/openai.ts'
 import * as anthropic            from '../_shared/providers/anthropic.ts'
 import * as gemini               from '../_shared/providers/gemini.ts'
 import * as groq                 from '../_shared/providers/groq.ts'
+import { loadModelProfile, computeOutputBudget, type ModelProfile } from '../_shared/model-profiles.ts'
+import {
+  stripReasoning,
+  extractResponse,
+  normalizeResponse,
+  normalizeVerdict,
+  validateResponse,
+  type NormalizedResponse
+} from '../_shared/normalization.ts'
 
-const FN              = 'process-prompt'
-const MAX_TOKENS      = 8192
-const TEMPERATURE     = 0.7
-
-const VALID_CATEGORIES = ['startup_idea', 'automation', 'personal_tool', 'dev_tool', 'other'] as const
-const VALID_SCORES     = ['strong', 'weak', 'needs_pivot', 'needs_refinement'] as const
-
-// System instruction appended to every prompt — forces structured JSON output
-const JSON_FORMAT_INSTRUCTION = `
-
-IMPORTANT: You MUST return ONLY a valid JSON object with exactly these three keys:
-{
-  "analysis": "your detailed analysis and response here (markdown supported)",
-  "category": "MUST be exactly one of: startup_idea, automation, personal_tool, dev_tool, other",
-  "score":    "MUST be exactly one of: strong, weak, needs_pivot, needs_refinement"
-}
-Do NOT wrap in markdown code fences. Return raw JSON only.`
+const FN = 'process-prompt'
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsPreflight()
@@ -115,7 +108,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   // 3. Get actual prompt
   const { data: prompt, error: promptErr } = await supabase
     .from('prompts')
-    .select('id, prompt_name, prompt, context_mode')
+    .select('id, prompt_name, prompt, context_mode, use_system_format, custom_schema')
     .eq('id', promptId)
     .single()
 
@@ -129,9 +122,9 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     .select('message_type, message, sequence_number')
     .eq('idea_id', idea_id)
     .order('sequence_number', { ascending: true })
-    
+
   let contextMessages = allMessages ?? []
-  
+
   // 5. Build ONE explicit user message based on context_mode
   let finalInput = prompt.prompt
 
@@ -144,7 +137,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   } else if (prompt.context_mode === 'full_history_json') {
     const ideaMsg = contextMessages.find(m => m.message_type === 'idea')
     const steps: { prompt: string; response: string }[] = []
-    
+
     let currentPrompt = ''
     for (const m of contextMessages) {
       if (m.message_type === 'prompt') {
@@ -154,7 +147,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
         currentPrompt = ''
       }
     }
-    
+
     const historyData = {
       idea: ideaMsg?.message ?? '',
       steps
@@ -162,17 +155,11 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     finalInput += `\n\nFULL CONTEXT JSON:\n${JSON.stringify(historyData, null, 2)}`
   }
 
-  // Final LLM Payload Array (exactly 1 message)
-  const llmMessages: fireworks.Message[] = [{
-    role:    'user',
-    content: finalInput + JSON_FORMAT_INSTRUCTION,
-  }]
-
   // 6. Load active model — prefers is_active=true, falls back to first row
-  let model: { model_id: string; provider: string } | null = null
+  let model: { id: string; model_id: string; provider: string } | null = null
   const { data: activeModel } = await supabase
     .from('models')
-    .select('model_id, provider')
+    .select('id, model_id, provider')
     .eq('is_active', true)
     .limit(1)
     .maybeSingle()
@@ -182,7 +169,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   } else {
     const { data: firstModel } = await supabase
       .from('models')
-      .select('model_id, provider')
+      .select('id, model_id, provider')
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
@@ -194,80 +181,147 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   const apiKey = Deno.env.get('AI_API_KEY') ?? ''
   if (!apiKey) throw new Error('AI_API_KEY secret not set')
 
-  // 7. Call LLM with retry + validation
-  let aiAnalysis = ''
-  let category:  string | null = null
-  let score:     string | null = null
-  let rawContent = ''
-  let succeeded  = false
+  // 7. Load model profile (PREPARE stage)
+  const profile = await loadModelProfile(model.id)
+  if (!profile) log(ctx, 'No model profile found, using defaults')
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const result = await callProvider(model.provider, model.model_id, llmMessages, apiKey)
-    rawContent   = result.content
+  const effectiveProfile = profile ?? {
+    id: '',
+    model_id: model.id,
+    max_tokens: 8192,
+    reasoning_budget: 0,
+    temperature: 0.3,
+    timeout_ms: 60000,
+    strip_reasoning: true,
+    max_retries: 2,
+    prompt_format: 'json_schema' as const,
+    normalization_config: {
+      reasoning_patterns: { tag_based: [] as string[], prefix_based: [] as string[] },
+      synonym_map: {} as Record<string, string>,
+      double_verdict_strategy: 'last_occurrence'
+    }
+  }
+
+  // 8. Load prompt schema
+  const schema = await loadPromptSchema(prompt.id)
+
+  // 9. Build system prompt (PREPARE stage)
+  const systemPrompt = buildSystemPrompt(effectiveProfile, prompt, schema)
+
+  // 10. Process with retry (CALL LLM → NORMALIZE → VALIDATE)
+  let aiAnalysis = ''
+  let category: string | null = null
+  let score: string | null = null
+  let reasoningContent: string | null = null
+  let rawContent = ''
+  let succeeded = false
+  let tokensUsed = 0
+
+  for (let attempt = 1; attempt <= effectiveProfile.max_retries; attempt++) {
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: finalInput }
+    ]
+
+    if (attempt > 1) {
+      messages.push({
+        role: 'user',
+        content: `Your previous response failed validation. Please respond ONLY with valid ${effectiveProfile.prompt_format} matching the required schema.`
+      })
+    }
 
     try {
-      let json = rawContent.trim()
-      if (json.startsWith('```json')) json = json.slice(7)
-      if (json.startsWith('```'))     json = json.slice(3)
-      if (json.endsWith('```'))       json = json.slice(0, -3)
+      const result = await callProviderWithTimeout(
+        model.provider,
+        model.model_id,
+        messages,
+        effectiveProfile
+      )
 
-      const parsed = JSON.parse(json.trim())
-      if (!parsed.analysis)                          throw new Error("Missing 'analysis'")
+      rawContent = result.content
+      tokensUsed = result.outputTokens
 
-      const c = parsed.category?.toString().toLowerCase().trim()
-      const s = parsed.score?.toString().toLowerCase().trim()
-      if (!VALID_CATEGORIES.includes(c as any))      throw new Error(`Invalid category: ${c}`)
-      if (!VALID_SCORES.includes(s as any))           throw new Error(`Invalid score: ${s}`)
+      // NORMALIZE stage
+      const { cleaned, reasoning } = stripReasoning(
+        rawContent,
+        effectiveProfile.normalization_config.reasoning_patterns
+      )
+      reasoningContent = reasoning
 
-      aiAnalysis = parsed.analysis
-      category   = c
-      score      = s
-      succeeded  = true
-      log({ ...ctx, attempt }, 'JSON response validated')
-      break
-    } catch (err) {
-      logError({ ...ctx, attempt }, err, 'JSON validation failed — retrying')
+      const extracted = extractResponse(cleaned, effectiveProfile.prompt_format)
+      if (extracted.error) throw new Error(extracted.error)
+
+      const normalized = normalizeResponse(extracted.content, schema.field_aliases)
+
+      if (normalized.score) {
+        normalized.score = normalizeVerdict(
+          normalized.score,
+          effectiveProfile.normalization_config.synonym_map
+        )
+      }
+
+      // VALIDATE stage
+      const validation = validateResponse(
+        normalized,
+        schema.allowed_categories || ['startup_idea', 'automation', 'personal_tool', 'dev_tool', 'other'],
+        schema.allowed_scores || ['strong', 'weak', 'needs_pivot', 'needs_refinement']
+      )
+
+      if (validation.valid) {
+        aiAnalysis = normalized.analysis || ''
+        category = normalized.category || null
+        score = normalized.score || null
+        succeeded = true
+        log({ ...ctx, attempt }, 'Response validated successfully')
+        break
+      } else {
+        throw new Error(`Validation failed: ${validation.errors.join('; ')}`)
+      }
+
+    } catch (err: any) {
+      logError({ ...ctx, attempt }, err, `Attempt ${attempt} failed`)
+      if (attempt === effectiveProfile.max_retries) break
     }
   }
 
   if (!succeeded) {
-    // Store raw response and mark failed so the chain is debuggable
     await supabase.from('chat_messages').insert([
-      { idea_id, message: prompt.prompt,  message_type: 'prompt',   prompt_id: prompt.id, sequence_number: nextSeq(allMessages) },
-      { idea_id, message: rawContent,     message_type: 'response', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
+      { idea_id, message: prompt.prompt, message_type: 'prompt', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) },
+      { idea_id, message: rawContent, message_type: 'response', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
     ])
     await supabase.from('ideas').update({ status: 'failed' }).eq('id', idea_id)
-    throw new Error('Failed to get valid JSON after 3 attempts')
+    throw new Error(`Failed after ${effectiveProfile.max_retries} attempts`)
   }
 
-  // 8. Store prompt (message_type='prompt') + response (message_type='response')
-  //    AFTER storing → trigger next (ensures context is in DB before next call)
+  // 11. Store messages with reasoning metadata
   const seqBase = nextSeq(allMessages)
   const { error: insertErr } = await supabase.from('chat_messages').insert([
     {
       idea_id,
-      message:         prompt.prompt,
-      message_type:    'prompt',
-      prompt_id:       prompt.id,
+      message: prompt.prompt,
+      message_type: 'prompt',
+      prompt_id: prompt.id,
       sequence_number: seqBase,
     },
     {
       idea_id,
-      message:         aiAnalysis,
-      message_type:    'response',
-      prompt_id:       prompt.id,
+      message: aiAnalysis,
+      message_type: 'response',
+      prompt_id: prompt.id,
       sequence_number: seqBase + 1,
+      reasoning_content: reasoningContent,
+      tokens_used: tokensUsed,
     },
   ])
 
   if (insertErr) throw new Error(`Failed to store messages: ${insertErr.message}`)
 
-  // 9. Update idea with latest category/score (upserts on every step)
+  // 12. Update idea with latest category/score (upserts on every step)
   await supabase.from('ideas').update({ category, score }).eq('id', idea_id)
 
   log(ctx, 'Messages stored', { category, score })
 
-  // 10. Chain next prompt OR mark completed
+  // 13. Chain next prompt OR mark completed
   // If we ran a custom prompt, we don't automatically chain anything.
   if (custom_prompt_id) {
     await supabase.from('ideas').update({ status: 'completed' }).eq('id', idea_id)
@@ -315,17 +369,100 @@ function nextSeq(msgs: { sequence_number: number }[] | null): number {
   return Math.max(...msgs.map(m => m.sequence_number)) + 1
 }
 
+async function loadPromptSchema(promptId: string) {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('prompt_schemas')
+    .select('*')
+    .eq('prompt_id', promptId)
+    .single()
+
+  return data ?? {
+    field_aliases: {
+      analysis: ['analysis', 'content', 'response', 'output'],
+      category: ['category', 'type', 'domain', 'classification'],
+      score: ['score', 'verdict', 'rating', 'assessment']
+    },
+    allowed_categories: ['startup_idea', 'automation', 'personal_tool', 'dev_tool', 'other'],
+    allowed_scores: ['strong', 'weak', 'needs_pivot', 'needs_refinement']
+  }
+}
+
+function buildSystemPrompt(profile: ModelProfile, prompt: any, schema: any): string {
+  if (!prompt.use_system_format) {
+    return prompt.custom_schema || ''
+  }
+
+  const categories = schema.allowed_categories?.join(', ') || 'startup_idea, automation, personal_tool, dev_tool, other'
+  const scores = schema.allowed_scores?.join(', ') || 'strong, weak, needs_pivot, needs_refinement'
+
+  switch (profile.prompt_format) {
+    case 'xml_tags':
+      return `IMPORTANT: Return your response in this exact XML format:
+<response>
+  <analysis>Your detailed analysis here</analysis>
+  <category>One of: ${categories}</category>
+  <score>One of: ${scores}</score>
+</response>`
+
+    case 'markdown_sections':
+      return `IMPORTANT: Format your response with these exact sections:
+
+## Analysis
+[Your detailed analysis]
+
+## Category
+[MUST be exactly one of: ${categories}]
+
+## Score
+[MUST be exactly one of: ${scores}]`
+
+    case 'json_schema':
+    default:
+      return `IMPORTANT: You MUST return ONLY a valid JSON object with exactly these three keys:
+{
+  "analysis": "your detailed analysis and response here (markdown supported)",
+  "category": "MUST be exactly one of: ${categories}",
+  "score": "MUST be exactly one of: ${scores}"
+}
+Do NOT wrap in markdown code fences. Return raw JSON only.`
+  }
+}
+
 // Routes to the correct provider based on model.provider string
 async function callProvider(
   provider: string,
   modelId:  string,
-  messages: fireworks.Message[],
-  apiKey:   string,
-): Promise<{ content: string }> {
-  const params = { modelId, messages, temperature: TEMPERATURE, maxTokens: MAX_TOKENS, apiKey }
+  messages: any[],
+  options: { temperature: number; maxTokens: number; apiKey: string },
+): Promise<{ content: string; outputTokens: number }> {
+  const params = { modelId, messages, temperature: options.temperature, maxTokens: options.maxTokens, apiKey: options.apiKey }
   if (provider === 'openai')    return openai.generateCompletion(params)
   if (provider === 'anthropic') return anthropic.generateCompletion(params)
   if (provider === 'gemini')    return gemini.generateCompletion(params)
   if (provider === 'groq')      return groq.generateCompletion(params)
-  return fireworks.generateCompletion(params)  // default
+  return fireworks.generateCompletion(params)
+}
+
+async function callProviderWithTimeout(
+  provider: string,
+  modelId: string,
+  messages: any[],
+  profile: ModelProfile
+): Promise<{ content: string; outputTokens: number }> {
+  const apiKey = Deno.env.get('AI_API_KEY') || ''
+  const outputBudget = computeOutputBudget(profile)
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout after ${profile.timeout_ms}ms`)), profile.timeout_ms)
+  )
+
+  return Promise.race([
+    callProvider(provider, modelId, messages, {
+      temperature: profile.temperature,
+      maxTokens: outputBudget,
+      apiKey,
+    }),
+    timeoutPromise,
+  ])
 }
