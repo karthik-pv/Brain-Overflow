@@ -28,6 +28,8 @@ export interface ChatMessage {
   message_type: MessageType
   prompt_id: string | null
   sequence_number: number
+  reasoning_content: string | null
+  tokens_used: number | null
   created_at: string
 }
 
@@ -41,6 +43,8 @@ export interface Prompt {
   prompt_name: string
   prompt: string
   context_mode: ContextMode
+  use_system_format: boolean
+  custom_schema: string | null
   created_at: string
 }
 
@@ -60,5 +64,36 @@ export interface Model {
   model_id: string
   provider: Provider
   is_active: boolean
+  created_at: string
+}
+
+export interface ModelProfile {
+  id: string
+  model_id: string
+  max_tokens: number
+  reasoning_budget: number
+  temperature: number
+  timeout_ms: number
+  strip_reasoning: boolean
+  max_retries: number
+  prompt_format: 'json_schema' | 'xml_tags' | 'markdown_sections'
+  normalization_config: {
+    reasoning_patterns: {
+      tag_based: string[]
+      prefix_based: string[]
+    }
+    synonym_map: Record<string, string>
+    double_verdict_strategy: string
+  }
+  created_at: string
+  updated_at: string
+}
+
+export interface PromptSchema {
+  id: string
+  prompt_id: string
+  field_aliases: Record<string, string[]>
+  allowed_categories: string[] | null
+  allowed_scores: string[] | null
   created_at: string
 }
