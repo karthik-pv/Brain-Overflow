@@ -187,7 +187,7 @@ export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
                         <div className="max-h-48 overflow-y-auto text-sm text-[color:var(--color-text-dim)] opacity-60 italic whitespace-pre-wrap">
                           {msg.reasoning_content}
                         </div>
-                        {msg.tokens_used && (
+                        {msg.tokens_used != null && (
                           <p className="text-xs text-[color:var(--color-text-mute)] mt-2">
                             Response tokens: {msg.tokens_used}
                           </p>

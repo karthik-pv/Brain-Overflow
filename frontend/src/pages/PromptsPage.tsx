@@ -79,6 +79,10 @@ export function PromptsPage() {
       setErr('Name and prompt text are required')
       return
     }
+    if (!form.use_system_format && !form.custom_schema?.trim()) {
+      setErr('Custom schema is required when system format is disabled')
+      return
+    }
     setBusy(true)
     setErr('')
     try {
@@ -207,12 +211,13 @@ export function PromptsPage() {
                 </div>
                 <div className="flex items-center gap-2 mt-4">
                   <input
+                    id="use-system-format"
                     type="checkbox"
-                    checked={form.use_system_format !== false}
+                    checked={form.use_system_format}
                     onChange={(e) => setForm({ ...form, use_system_format: e.target.checked })}
                     className="h-4 w-4"
                   />
-                  <Label className="mb-0">Use system output format</Label>
+                  <Label htmlFor="use-system-format" className="mb-0">Use system output format</Label>
                 </div>
                 {!form.use_system_format && (
                   <div className="mt-4">

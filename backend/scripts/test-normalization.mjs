@@ -57,9 +57,13 @@ let allPassed = true
     console.error('✗ Prompts use_system_format column:', error.message)
     allPassed = false
   } else {
-    const allHave = data.length > 0 && data.every(row => row.use_system_format !== null && row.use_system_format !== undefined)
-    console.log(`✓ Prompts have use_system_format: ${allHave} (${data.length} prompts checked)`)
-    if (!allHave) allPassed = false
+    const allHave = (data ?? []).length > 0 && (data ?? []).every(row => row.use_system_format !== null && row.use_system_format !== undefined)
+    if (allHave) {
+      console.log(`✓ Prompts have use_system_format (${(data ?? []).length} prompts checked)`)
+    } else {
+      console.error(`✗ Prompts have use_system_format: false (${(data ?? []).length} prompts checked)`)
+      allPassed = false
+    }
   }
 }
 
@@ -84,26 +88,34 @@ let allPassed = true
 {
   const { data: msgsData, error: msgsError } = await sb.from('chat_messages').select('reasoning_content, tokens_used').limit(1)
   const colsExist = !msgsError
-  console.log(`✓ Chat messages have new columns: ${colsExist}`)
-  if (!colsExist) { allPassed = false; console.error('  Error:', msgsError.message) }
+  if (colsExist) {
+    console.log('✓ Chat messages have new columns: true')
+  } else {
+    console.error('✗ Chat messages have new columns: false')
+    console.error('  Error:', msgsError.message)
+    allPassed = false
+  }
 }
 
 // ── 5. Sample model profile ─────────────────────────────────────────────────
 {
-  const { data, error } = await sb
+  const { data: profile, error: profileError } = await sb
     .from('model_profiles')
-    .select('model_id, max_tokens, reasoning_budget, output_budget, temperature, format')
+    .select('model_id, max_tokens, reasoning_budget, temperature, prompt_format')
     .limit(1)
     .single()
 
-  if (!error && data) {
+  if (profile) {
+    const outputBudget = profile.max_tokens - profile.reasoning_budget
     console.log('\nSample profile:')
-    console.log(`  Model: ${data.model_id}`)
-    console.log(`  Max tokens: ${data.max_tokens}`)
-    console.log(`  Reasoning budget: ${data.reasoning_budget}`)
-    console.log(`  Output budget: ${data.output_budget}`)
-    console.log(`  Temperature: ${data.temperature}`)
-    console.log(`  Format: ${data.format}`)
+    console.log(`  Model: ${profile.model_id}`)
+    console.log(`  Max tokens: ${profile.max_tokens}`)
+    console.log(`  Reasoning budget: ${profile.reasoning_budget}`)
+    console.log(`  Output budget: ${outputBudget}`)
+    console.log(`  Temperature: ${profile.temperature}`)
+    console.log(`  Format: ${profile.prompt_format}`)
+  } else if (profileError) {
+    console.warn('  Warning: could not load sample profile:', profileError.message)
   }
 }
 
