@@ -15,6 +15,8 @@ export interface PromptInput {
   prompt_name: string
   prompt: string
   context_mode: ContextMode
+  use_system_format?: boolean
+  custom_schema?: string | null
 }
 
 export async function createPrompt(data: PromptInput): Promise<Prompt> {

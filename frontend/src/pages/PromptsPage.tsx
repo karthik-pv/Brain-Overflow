@@ -31,10 +31,21 @@ import {
 } from '@/lib/api/prompts'
 import type { ContextMode, Prompt } from '@/types'
 
-const BLANK: { id?: string; prompt_name: string; prompt: string; context_mode: ContextMode } = {
+interface FormState {
+  id?: string
+  prompt_name: string
+  prompt: string
+  context_mode: ContextMode
+  use_system_format: boolean
+  custom_schema: string | null
+}
+
+const BLANK: FormState = {
   prompt_name: '',
   prompt: '',
   context_mode: 'idea_only',
+  use_system_format: true,
+  custom_schema: null,
 }
 
 const CONTEXT_LABELS: Record<ContextMode, string> = {
@@ -45,7 +56,7 @@ const CONTEXT_LABELS: Record<ContextMode, string> = {
 
 export function PromptsPage() {
   const [prompts, setPrompts] = useState<Prompt[]>([])
-  const [form, setForm] = useState<typeof BLANK | null>(null)
+  const [form, setForm] = useState<FormState | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
@@ -76,12 +87,16 @@ export function PromptsPage() {
           prompt_name: form.prompt_name,
           prompt: form.prompt,
           context_mode: form.context_mode,
+          use_system_format: form.use_system_format,
+          custom_schema: form.custom_schema,
         })
       } else {
         await createPrompt({
           prompt_name: form.prompt_name,
           prompt: form.prompt,
           context_mode: form.context_mode,
+          use_system_format: form.use_system_format,
+          custom_schema: form.custom_schema,
         })
       }
       setForm(null)
@@ -190,6 +205,26 @@ export function PromptsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="flex items-center gap-2 mt-4">
+                  <input
+                    type="checkbox"
+                    checked={form.use_system_format !== false}
+                    onChange={(e) => setForm({ ...form, use_system_format: e.target.checked })}
+                    className="h-4 w-4"
+                  />
+                  <Label className="mb-0">Use system output format</Label>
+                </div>
+                {!form.use_system_format && (
+                  <div className="mt-4">
+                    <Label>CUSTOM SCHEMA</Label>
+                    <textarea
+                      value={form.custom_schema || ''}
+                      onChange={(e) => setForm({ ...form, custom_schema: e.target.value })}
+                      placeholder="Enter custom output format instructions..."
+                      className="mt-2 w-full h-32 bg-[color:var(--color-surface)] border border-[color:var(--color-edge)] p-3 font-mono text-sm"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 flex gap-3">
@@ -256,6 +291,8 @@ export function PromptsPage() {
                             prompt_name: p.prompt_name,
                             prompt: p.prompt,
                             context_mode: p.context_mode,
+                            use_system_format: p.use_system_format ?? true,
+                            custom_schema: p.custom_schema ?? null,
                           })
                           setErr('')
                         }}
