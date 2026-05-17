@@ -64,10 +64,10 @@ export function setLocalCredentials(url: string, key: string) {
   _source = 'localStorage'
 }
 
-export function getEdgeFnHeaders(): { apikey: string; 'Content-Type': string } {
+export function getEdgeFnHeaders(): { Authorization: string; 'Content-Type': string } {
   const creds = resolveCredentials()
   if (!creds) throw new NotConfiguredError()
-  return { apikey: creds.key, 'Content-Type': 'application/json' }
+  return { Authorization: `Bearer ${creds.key}`, 'Content-Type': 'application/json' }
 }
 
 export function getSupabaseUrl(): string {
