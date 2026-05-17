@@ -84,20 +84,40 @@ let allPassed = true
   }
 }
 
-// ── 4. chat_messages has reasoning_content and tokens_used columns ──────────
+// ── 4. chat_messages has reasoning_content, tokens_used, and run_id columns ─
 {
-  const { data: msgsData, error: msgsError } = await sb.from('chat_messages').select('reasoning_content, tokens_used').limit(1)
-  const colsExist = !msgsError
-  if (colsExist) {
-    console.log('✓ Chat messages have new columns: true')
+  const { error: msgsError } = await sb.from('chat_messages').select('reasoning_content, tokens_used, run_id').limit(1)
+  if (!msgsError) {
+    console.log('✓ Chat messages have required columns (reasoning_content, tokens_used, run_id)')
   } else {
-    console.error('✗ Chat messages have new columns: false')
-    console.error('  Error:', msgsError.message)
+    console.error('✗ Chat messages missing columns:', msgsError.message)
     allPassed = false
   }
 }
 
-// ── 5. Sample model profile ─────────────────────────────────────────────────
+// ── 5. idea_runs table exists ────────────────────────────────────────────────
+{
+  const { error } = await sb.from('idea_runs').select('id, status, validation_state, total_tokens').limit(1)
+  if (!error) {
+    console.log('✓ idea_runs table: exists with correct columns')
+  } else {
+    console.error('✗ idea_runs table:', error.message)
+    allPassed = false
+  }
+}
+
+// ── 6. ideas has latest_run_id column ───────────────────────────────────────
+{
+  const { error } = await sb.from('ideas').select('latest_run_id').limit(1)
+  if (!error) {
+    console.log('✓ ideas.latest_run_id column: exists')
+  } else {
+    console.error('✗ ideas.latest_run_id column:', error.message)
+    allPassed = false
+  }
+}
+
+// ── 7. Sample model profile ─────────────────────────────────────────────────
 {
   const { data: profile, error: profileError } = await sb
     .from('model_profiles')
