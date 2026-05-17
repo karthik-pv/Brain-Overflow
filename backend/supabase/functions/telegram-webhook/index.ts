@@ -13,9 +13,9 @@
 //   3. First flow in DB
 // ============================================================
 
-import { createServiceClient }        from '../_shared/db.ts'
+import { createServiceClient } from '../_shared/db.ts'
 import { corsPreflight, jsonResponse } from '../_shared/cors.ts'
-import { log, logError }              from '../_shared/log.ts'
+import { log, logError } from '../_shared/log.ts'
 
 const FN = 'telegram-webhook'
 
@@ -29,10 +29,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const message = (body as any)?.message
   if (!message) return jsonResponse({ ok: true })
 
-  const chatId    = String(message.chat?.id   ?? '')
+  const chatId = String(message.chat?.id ?? '')
   const messageId = String(message.message_id ?? '')
-  const rawText   = (message.text ?? '').trim()
-  const userId    = String(message.from?.id   ?? '')
+  const rawText = (message.text ?? '').trim()
+  const userId = String(message.from?.id ?? '')
 
   if (!rawText || !chatId) return jsonResponse({ ok: true })
 
@@ -89,10 +89,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { data: idea, error: ideaErr } = await supabase
       .from('ideas')
       .insert({
-        idea:                ideaText,
-        flow_id:             flowId,
-        status:              flowId ? 'recorded' : 'completed',
-        telegram_chat_id:    chatId,
+        idea: ideaText,
+        flow_id: flowId,
+        status: flowId ? 'recorded' : 'completed',
+        telegram_chat_id: chatId,
         telegram_message_id: messageId,
       })
       .select('id')
@@ -108,10 +108,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // Store initial user message
     await supabase.from('chat_messages').insert({
-      idea_id:         ideaId,
-      message:         ideaText,
-      message_type:    'idea',
-      prompt_id:       null,
+      idea_id: ideaId,
+      message: ideaText,
+      message_type: 'idea',
+      prompt_id: null,
       sequence_number: 1,
     })
 
@@ -124,13 +124,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Mark processing and fire first prompt asynchronously
     await supabase.from('ideas').update({ status: 'processing' }).eq('id', ideaId)
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')          ?? ''
-    const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
     const chain = fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
-      method:  'POST',
+      method: 'POST',
       headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ idea_id: ideaId, prompt_index: 0 }),
+      body: JSON.stringify({ idea_id: ideaId, prompt_index: 0 }),
     }).then(r => {
       if (!r.ok) r.text().then(t =>
         logError({ fn: FN, ideaId }, new Error(`process-prompt invoke failed: ${r.status} ${t}`))
@@ -153,8 +153,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 async function handleFlows(
   supabase: ReturnType<typeof createServiceClient>,
-  token:   string,
-  chatId:  string,
+  token: string,
+  chatId: string,
 ): Promise<void> {
   const { data: flows } = await supabase
     .from('flows')
@@ -178,8 +178,8 @@ async function handleFlows(
 
 async function handleCurrentFlow(
   supabase: ReturnType<typeof createServiceClient>,
-  token:   string,
-  chatId:  string,
+  token: string,
+  chatId: string,
 ): Promise<void> {
   const { data: config } = await supabase
     .from('telegram_chat_config')
@@ -210,12 +210,11 @@ async function handleCurrentFlow(
 
 async function handleSetFlow(
   supabase: ReturnType<typeof createServiceClient>,
-  token:   string,
-  chatId:  string,
+  token: string,
+  chatId: string,
   rawText: string,
 ): Promise<void> {
-  // Parse: /setflow startup  or  /setflow
-  const parts   = rawText.trim().split(/\s+/)
+  const parts = rawText.trim().split(/\s+/)
   const cmdName = parts[1]?.toLowerCase()
 
   if (!cmdName) {
@@ -234,13 +233,12 @@ async function handleSetFlow(
     return
   }
 
-  // Upsert the chat config
   const { error } = await supabase
     .from('telegram_chat_config')
     .upsert({
       telegram_chat_id: chatId,
-      flow_id:          flow.id,
-      updated_at:       new Date().toISOString(),
+      flow_id: flow.id,
+      updated_at: new Date().toISOString(),
     }, { onConflict: 'telegram_chat_id' })
 
   if (error) {
@@ -257,22 +255,20 @@ async function handleSetFlow(
 
 async function resolveFlowAndIdea(
   supabase: ReturnType<typeof createServiceClient>,
-  chatId:   string,
-  rawText:  string,
+  chatId: string,
+  rawText: string,
 ): Promise<{ flowId: string | null; ideaText: string }> {
   let explicitFlowId: string | null = null
   let ideaText = rawText
 
-  // Check for an explicit flow command: /startup ... or /startup\nidea
   if (rawText.startsWith('/')) {
-    const lines      = rawText.split('\n')
-    const firstLine  = lines[0].trim()
-    const restLines  = lines.slice(1).join('\n').trim()
+    const lines = rawText.split('\n')
+    const firstLine = lines[0].trim()
+    const restLines = lines.slice(1).join('\n').trim()
 
-    // Extract command: /startup some idea → cmdName='startup', inlineIdea='some idea'
-    const afterSlash = firstLine.slice(1)                          // "startup some idea"
-    const spaceIdx   = afterSlash.search(/\s/)
-    const cmdName    = (spaceIdx === -1 ? afterSlash : afterSlash.slice(0, spaceIdx))
+    const afterSlash = firstLine.slice(1)
+    const spaceIdx = afterSlash.search(/\s/)
+    const cmdName = (spaceIdx === -1 ? afterSlash : afterSlash.slice(0, spaceIdx))
       .split('@')[0].toLowerCase()
     const inlineIdea = spaceIdx === -1 ? '' : afterSlash.slice(spaceIdx + 1).trim()
 
@@ -284,15 +280,12 @@ async function resolveFlowAndIdea(
 
     if (flow) {
       explicitFlowId = flow.id
-      // Prefer multiline body, then inline text
       ideaText = restLines || inlineIdea || rawText
     } else {
-      // Not a flow command — treat remaining text as idea
       ideaText = restLines || inlineIdea || rawText
     }
   }
 
-  // Priority 2: persistent config
   let persistedFlowId: string | null = null
   if (!explicitFlowId) {
     const { data: config } = await supabase
@@ -303,7 +296,6 @@ async function resolveFlowAndIdea(
     persistedFlowId = config?.flow_id ?? null
   }
 
-  // Priority 3: first flow in DB
   let defaultFlowId: string | null = null
   if (!explicitFlowId && !persistedFlowId) {
     const { data: firstFlow } = await supabase
@@ -325,9 +317,9 @@ async function sendTelegramMessage(token: string, chatId: string, text: string):
   if (!token) { console.warn('TELEGRAM_BOT_TOKEN not set — cannot send message'); return }
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify({ chat_id: chatId, text }),
     })
   } catch (err) {
     logError({ fn: FN }, err, 'sendTelegramMessage failed')
