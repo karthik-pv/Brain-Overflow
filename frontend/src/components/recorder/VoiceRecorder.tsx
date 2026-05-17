@@ -7,10 +7,18 @@ import { useAudioVisualizer } from '@/hooks/useAudioVisualizer'
 import { AuraVisualizer } from './AuraVisualizer'
 import { IdeateButton } from './IdeateButton'
 import { PearlButton } from '@/components/ui/PearlButton'
-import { createIdea, updateIdeaStatus } from '@/lib/api/ideas'
+import { createIdea } from '@/lib/api/ideas'
 import { insertIdeaMessage } from '@/lib/api/chatMessages'
-import { getDefaultFlow } from '@/lib/api/flows'
-import { triggerProcessPrompt } from '@/lib/api/edgeFn'
+import { listFlows } from '@/lib/api/flows'
+import { startRun } from '@/lib/api/runs'
+import type { Flow } from '@/types'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 type State = 'idle' | 'listening' | 'analyzing' | 'captured' | 'error'
 
@@ -26,6 +34,8 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
   const [showManual, setShowManual] = useState(false)
   const [manualText, setManualText] = useState('')
   const [editable, setEditable] = useState('')
+  const [flows, setFlows] = useState<Flow[]>([])
+  const [selectedFlowId, setSelectedFlowId] = useState<string>('')
 
   const { start: startAudio, stop: stopAudio } = useAudioVisualizer()
   const {
@@ -38,6 +48,13 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
   useEffect(() => {
     onRecordingStateChange?.(state === 'listening')
   }, [state, onRecordingStateChange])
+
+  useEffect(() => {
+    listFlows().then(f => {
+      setFlows(f)
+      if (f.length > 0) setSelectedFlowId(f[0].id)
+    }).catch(() => {})
+  }, [])
 
   const handleStart = useCallback(async () => {
     setError('')
@@ -81,13 +98,11 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
     setError('')
 
     try {
-      const flow = await getDefaultFlow()
-      const flowId = flow?.id ?? null
+      const flowId = selectedFlowId || null
       const idea = await createIdea(text, flowId)
       await insertIdeaMessage(idea.id, text)
-      if (flowId) {
-        await updateIdeaStatus(idea.id, 'processing')
-        await triggerProcessPrompt(idea.id, { promptIndex: 0 })
+      if (selectedFlowId) {
+        await startRun(idea.id, selectedFlowId)
       }
       setState('captured')
       window.setTimeout(() => {
@@ -97,7 +112,7 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
       setError(e instanceof Error ? e.message : 'Failed to submit idea')
       setState('error')
     }
-  }, [editable, manualText, navigate])
+  }, [editable, manualText, navigate, selectedFlowId])
 
   const hasTranscript = !!(editable || manualText).trim()
   const ideateState =
@@ -208,6 +223,29 @@ export function VoiceRecorder({ onRecordingStateChange }: Props) {
             <Keyboard className="h-3.5 w-3.5" />
             <span className="font-mono">{showManual ? 'hide keyboard' : 'type instead'}</span>
           </PearlButton>
+        )}
+
+        {flows.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-[color:var(--color-text-mute)] uppercase tracking-widest">
+              flow
+            </span>
+            <Select
+              value={selectedFlowId}
+              onValueChange={setSelectedFlowId}
+            >
+              <SelectTrigger className="h-7 text-xs font-mono border-[color:var(--color-edge)] bg-transparent w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {flows.map(f => (
+                  <SelectItem key={f.id} value={f.id} className="text-xs font-mono">
+                    {f.flow_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
         {error && (
