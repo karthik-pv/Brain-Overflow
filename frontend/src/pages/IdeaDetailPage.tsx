@@ -136,9 +136,12 @@ export function IdeaDetailPage() {
 
   const status = STATUS_META[idea.status]
 
-  // Filter messages to selected run (legacy messages have run_id=null)
+  // Filter messages to selected run; 'legacy' shows messages with null run_id
   const displayedMessages = selectedRunId
-    ? messages.filter(m => m.run_id === selectedRunId || m.message_type === 'idea')
+    ? messages.filter(m =>
+        m.message_type === 'idea' ||
+        (selectedRunId === 'legacy' ? m.run_id === null : m.run_id === selectedRunId)
+      )
     : messages
 
   // Append a legacy entry if there are messages without run_id
