@@ -61,7 +61,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .single()
 
     if (runErr || !run) {
-      logError(ctx, runErr, 'Failed to create run')
+      logError(ctx, runErr ?? new Error('insert returned no data'), 'Failed to create run')
       return errorResponse('Failed to create run', 500)
     }
 
