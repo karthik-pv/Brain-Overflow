@@ -40,17 +40,17 @@ const FN = 'process-prompt'
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsPreflight()
 
-  let body: { idea_id?: string; prompt_index?: number; custom_prompt_id?: string }
+  let body: { idea_id?: string; prompt_index?: number; custom_prompt_id?: string; run_id?: string }
   try { body = await req.json() }
   catch { return errorResponse('Invalid JSON body', 400) }
 
-  const { idea_id, prompt_index, custom_prompt_id } = body
+  const { idea_id, prompt_index, custom_prompt_id, run_id } = body
   if (!idea_id)              return errorResponse('Missing idea_id', 400)
 
-  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id }
+  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id }
 
   try {
-    await runPrompt(idea_id, prompt_index, custom_prompt_id)
+    await runPrompt(idea_id, prompt_index, custom_prompt_id, run_id)
     return jsonResponse({ ok: true })
   } catch (err) {
     logError(ctx, err, 'process-prompt threw')
@@ -60,9 +60,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 // ─── Main Logic ──────────────────────────────────────────────────────────────
 
-async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_id?: string): Promise<void> {
+async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_id?: string, run_id?: string): Promise<void> {
   const supabase = createServiceClient()
-  const ctx      = { fn: FN, idea_id, prompt_index, custom_prompt_id }
+  const ctx      = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id }
 
   // 1. Load idea
   const { data: idea, error: ideaErr } = await supabase
@@ -78,7 +78,8 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
 
   if (!promptId) {
     // Guard: skip if idea already failed or completed by another path and we are automating
-    if (idea.status === 'failed' || idea.status === 'completed') {
+    // (bypassed when run_id is present — runs have their own lifecycle independent of idea status)
+    if (!run_id && (idea.status === 'failed' || idea.status === 'completed')) {
       log(ctx, `Idea already in terminal state '${idea.status}' — skipping`)
       return
     }
@@ -96,8 +97,32 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     const promptIds: string[] = flow.prompt_ids as string[]
 
     if (prompt_index >= promptIds.length) {
-      // Past end of chain — mark completed
-      await markCompleted(supabase, idea_id)
+      if (run_id) {
+        const { data: msgs } = await supabase
+          .from('chat_messages')
+          .select('tokens_used')
+          .eq('run_id', run_id)
+        const totalTokens = msgs?.reduce((s, m) => s + (m.tokens_used ?? 0), 0) ?? 0
+
+        const { data: runData } = await supabase
+          .from('idea_runs')
+          .select('category, score')
+          .eq('id', run_id)
+          .single()
+
+        await supabase.from('idea_runs').update({
+          status: 'completed',
+          total_tokens: totalTokens,
+          completed_at: new Date().toISOString(),
+        }).eq('id', run_id)
+
+        await supabase.from('ideas')
+          .update({ category: runData?.category, score: runData?.score, status: 'completed' })
+          .eq('id', idea_id)
+          .eq('latest_run_id', run_id)
+      } else {
+        await markCompleted(supabase, idea_id)
+      }
       log(ctx, 'No more prompts — idea completed')
       return
     }
@@ -178,6 +203,21 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
 
   if (!model) throw new Error('No model configured — add a model in the dashboard')
 
+  // Transition run from queued → processing (atomic guard against duplicate invocations)
+  if (run_id) {
+    const { data: updatedRuns } = await supabase
+      .from('idea_runs')
+      .update({ status: 'processing' })
+      .eq('id', run_id)
+      .eq('status', 'queued')
+      .select('id')
+
+    if (!updatedRuns || updatedRuns.length === 0) {
+      log(ctx, 'Run already claimed or not queued — aborting', { run_id })
+      return
+    }
+  }
+
   const apiKey = Deno.env.get('AI_API_KEY') ?? ''
   if (!apiKey) throw new Error('AI_API_KEY secret not set')
 
@@ -217,6 +257,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   let succeeded = false
   let tokensUsed = 0
   let lastError = ''
+  let attemptsTaken = 0
 
   for (let attempt = 1; attempt <= effectiveProfile.max_retries; attempt++) {
     const messages: any[] = [
@@ -273,6 +314,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
         category = normalized.category || null
         score = normalized.score || null
         succeeded = true
+        attemptsTaken = attempt
         log({ ...ctx, attempt }, 'Response validated successfully')
         break
       } else {
@@ -289,10 +331,20 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   if (!succeeded) {
     const debugContent = rawContent || `[ERROR: ${lastError}]`
     await supabase.from('chat_messages').insert([
-      { idea_id, message: prompt.prompt, message_type: 'prompt', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) },
-      { idea_id, message: debugContent, message_type: 'response', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1 },
+      { idea_id, message: prompt.prompt, message_type: 'prompt', prompt_id: prompt.id, sequence_number: nextSeq(allMessages), run_id: run_id ?? null },
+      { idea_id, message: debugContent, message_type: 'response', prompt_id: prompt.id, sequence_number: nextSeq(allMessages) + 1, run_id: run_id ?? null },
     ])
-    await supabase.from('ideas').update({ status: 'failed' }).eq('id', idea_id)
+
+    if (run_id) {
+      await supabase.from('idea_runs').update({
+        status: 'failed',
+        error_message: lastError,
+        validation_state: 'invalid',
+      }).eq('id', run_id)
+    } else {
+      await supabase.from('ideas').update({ status: 'failed' }).eq('id', idea_id)
+    }
+
     throw new Error(`Failed after ${effectiveProfile.max_retries} attempts`)
   }
 
@@ -305,6 +357,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
       message_type: 'prompt',
       prompt_id: prompt.id,
       sequence_number: seqBase,
+      run_id: run_id ?? null,
     },
     {
       idea_id,
@@ -314,20 +367,54 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
       sequence_number: seqBase + 1,
       reasoning_content: reasoningContent,
       tokens_used: tokensUsed,
+      run_id: run_id ?? null,
     },
   ])
 
   if (insertErr) throw new Error(`Failed to store messages: ${insertErr.message}`)
 
   // 12. Update idea with latest category/score (upserts on every step)
-  await supabase.from('ideas').update({ category, score }).eq('id', idea_id)
+  const stepValidationState = !succeeded
+    ? 'invalid'
+    : attemptsTaken > 1
+    ? 'recovered'
+    : 'valid'
+
+  if (run_id) {
+    await supabase.from('idea_runs').update({
+      category,
+      score,
+      validation_state: stepValidationState,
+    }).eq('id', run_id)
+  } else {
+    await supabase.from('ideas').update({ category, score }).eq('id', idea_id)
+  }
 
   log(ctx, 'Messages stored', { category, score })
 
   // 13. Chain next prompt OR mark completed
   // If we ran a custom prompt, we don't automatically chain anything.
   if (custom_prompt_id) {
-    await supabase.from('ideas').update({ status: 'completed' }).eq('id', idea_id)
+    if (run_id) {
+      const { data: msgs } = await supabase
+        .from('chat_messages')
+        .select('tokens_used')
+        .eq('run_id', run_id)
+      const totalTokens = msgs?.reduce((s, m) => s + (m.tokens_used ?? 0), 0) ?? 0
+
+      await supabase.from('idea_runs').update({
+        status: 'completed',
+        total_tokens: totalTokens,
+        completed_at: new Date().toISOString(),
+      }).eq('id', run_id)
+
+      await supabase.from('ideas')
+        .update({ category, score, status: 'completed' })
+        .eq('id', idea_id)
+        .eq('latest_run_id', run_id)
+    } else {
+      await supabase.from('ideas').update({ status: 'completed' }).eq('id', idea_id)
+    }
     log(ctx, 'Custom prompt complete — idea marked completed')
     return
   }
@@ -338,7 +425,32 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   const isLast = (prompt_index || 0) + 1 >= promptIds.length
 
   if (isLast) {
-    await markCompleted(supabase, idea_id)
+    if (run_id) {
+      const { data: msgs } = await supabase
+        .from('chat_messages')
+        .select('tokens_used')
+        .eq('run_id', run_id)
+      const totalTokens = msgs?.reduce((s, m) => s + (m.tokens_used ?? 0), 0) ?? 0
+
+      const { data: runData } = await supabase
+        .from('idea_runs')
+        .select('category, score')
+        .eq('id', run_id)
+        .single()
+
+      await supabase.from('idea_runs').update({
+        status: 'completed',
+        total_tokens: totalTokens,
+        completed_at: new Date().toISOString(),
+      }).eq('id', run_id)
+
+      await supabase.from('ideas')
+        .update({ category: runData?.category, score: runData?.score, status: 'completed' })
+        .eq('id', idea_id)
+        .eq('latest_run_id', run_id)
+    } else {
+      await markCompleted(supabase, idea_id)
+    }
     log(ctx, 'Chain complete — idea completed')
   } else {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -347,7 +459,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     const nextCall = fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
       method:  'POST',
       headers: { apikey: serviceKey, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ idea_id, prompt_index: prompt_index + 1 }),
+      body:    JSON.stringify({ idea_id, prompt_index: prompt_index + 1, run_id }),
     }).then(r => {
       if (!r.ok) r.text().then(t =>
         logError(ctx, new Error(`Next invoke failed: ${r.status} ${t}`))
