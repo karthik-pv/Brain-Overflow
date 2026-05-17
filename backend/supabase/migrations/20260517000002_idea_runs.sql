@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS idea_runs (
 
 CREATE INDEX IF NOT EXISTS idx_idea_runs_idea_id ON idea_runs(idea_id);
 
-CREATE TRIGGER idea_runs_updated_at
+CREATE OR REPLACE TRIGGER idea_runs_updated_at
   BEFORE UPDATE ON idea_runs
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -43,4 +43,4 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_run_id ON chat_messages(run_id);
 
 -- 4. Add latest_run_id to ideas
 ALTER TABLE ideas
-  ADD COLUMN IF NOT EXISTS latest_run_id UUID REFERENCES idea_runs(id);
+  ADD COLUMN IF NOT EXISTS latest_run_id UUID REFERENCES idea_runs(id) ON DELETE SET NULL;
