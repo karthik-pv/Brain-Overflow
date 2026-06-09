@@ -30,6 +30,7 @@ import {
   updateModel,
 } from '@/lib/api/models'
 import { getModelProfile, updateModelProfile, createModelProfile } from '@/lib/api/model-profiles'
+import { listApiKeys, saveApiKey, removeApiKey } from '@/lib/api/api-keys'
 import type { Model, Provider, ModelProfile } from '@/types'
 
 interface FormState {
@@ -77,6 +78,9 @@ export function ModelsPage() {
   const [configuringModel, setConfiguringModel] = useState<string | null>(null)
   const [modelProfile, setModelProfile] = useState<Partial<ModelProfile>>({})
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({})
+  const [apiKeys, setApiKeys] = useState<Record<string, string | null>>({})
+  const [keyInputs, setKeyInputs] = useState<Record<string, string>>({})
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({})
 
   async function fetchAll() {
     try {
@@ -88,6 +92,14 @@ export function ModelsPage() {
 
   useEffect(() => {
     fetchAll()
+  }, [])
+
+  useEffect(() => {
+    listApiKeys().then(keys => {
+      const map: Record<string, string | null> = {};
+      keys.forEach(k => { map[k.provider] = k.key_prefix; });
+      setApiKeys(map);
+    }).catch(() => {});
   }, [])
 
   async function save() {
@@ -111,6 +123,11 @@ export function ModelsPage() {
           model_id: form.model_id,
           provider: form.provider,
         })
+        if (keyInputs['__new__']) {
+          await saveApiKey(form.provider, keyInputs['__new__']).catch(() => {});
+          setKeyInputs(prev => ({ ...prev, __new__: '' }));
+          setApiKeys(prev => ({ ...prev, [form.provider]: keyInputs['__new__']!.substring(0, 4) }));
+        }
       }
       setForm(null)
       setEditingModelId(null)
@@ -310,6 +327,25 @@ export function ModelsPage() {
                         placeholder="model-id"
                         className="mt-2"
                       />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="add-api-key">API Key (optional)</Label>
+                  <div className="relative">
+                    <Input
+                      id="add-api-key"
+                      type={showKeys['__new__'] ? 'text' : 'password'}
+                      value={keyInputs['__new__'] || ''}
+                      onChange={(e) => setKeyInputs(prev => ({ ...prev, __new__: e.target.value }))}
+                      placeholder="sk-... or leave empty to use default"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKeys(prev => ({ ...prev, __new__: !prev.__new__ }))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/40 hover:text-white/70"
+                    >
+                      {showKeys['__new__'] ? 'HIDE' : 'SHOW'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -600,6 +636,76 @@ export function ModelsPage() {
                         />
                         <Label htmlFor={`strip-reasoning-${m.id}`} className="mb-0 cursor-pointer">Strip reasoning tokens</Label>
                       </div>
+                    </div>
+
+                    <div className="space-y-2 border-t border-white/10 pt-4 mt-4">
+                      <Label className="text-[11px] text-white/50">API Key</Label>
+                      {apiKeys[m.provider] ? (
+                        <div className="space-y-2">
+                          <p className="font-mono text-[11px] text-white/40">
+                            {apiKeys[m.provider]}...****
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const provider = m.provider;
+                                if (keyInputs[provider]) {
+                                  await saveApiKey(provider, keyInputs[provider]);
+                                  setApiKeys(prev => ({ ...prev, [provider]: keyInputs[provider].substring(0, 4) }));
+                                  setKeyInputs(prev => ({ ...prev, [provider]: '' }));
+                                }
+                              }}
+                              className="text-[10px] text-white/50 hover:text-white/80"
+                            >
+                              UPDATE KEY
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const provider = m.provider;
+                                if (!confirm('Remove API key for ' + provider + '?')) return;
+                                await removeApiKey(provider);
+                                setApiKeys(prev => ({ ...prev, [provider]: null }));
+                              }}
+                              className="text-[10px] text-red-400/50 hover:text-red-400/80"
+                            >
+                              REMOVE KEY
+                            </button>
+                          </div>
+                          <div className="relative">
+                            <Input
+                              type={showKeys[m.provider] ? 'text' : 'password'}
+                              value={keyInputs[m.provider] || ''}
+                              onChange={(e) => setKeyInputs(prev => ({ ...prev, [m.provider]: e.target.value }))}
+                              placeholder="Enter new key..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowKeys(prev => ({ ...prev, [m.provider]: !prev[m.provider] }))}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/40 hover:text-white/70"
+                            >
+                              {showKeys[m.provider] ? 'HIDE' : 'SHOW'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <Input
+                            type={showKeys[m.provider] ? 'text' : 'password'}
+                            value={keyInputs[m.provider] || ''}
+                            onChange={(e) => setKeyInputs(prev => ({ ...prev, [m.provider]: e.target.value }))}
+                            placeholder="sk-... or leave empty to use default"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowKeys(prev => ({ ...prev, [m.provider]: !prev[m.provider] }))}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/40 hover:text-white/70"
+                          >
+                            {showKeys[m.provider] ? 'HIDE' : 'SHOW'}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-6 flex gap-3">
