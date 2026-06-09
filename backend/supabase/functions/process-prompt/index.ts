@@ -20,6 +20,7 @@
 import { createServiceClient } from '../_shared/db.ts'
 import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts'
 import { log, logError } from '../_shared/log.ts'
+import { getApiKey } from '../_shared/keys.ts'
 import * as fireworks from '../_shared/providers/fireworks.ts'
 import * as openai from '../_shared/providers/openai.ts'
 import * as anthropic from '../_shared/providers/anthropic.ts'
@@ -223,8 +224,14 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     }
   }
 
-  const apiKey = Deno.env.get('AI_API_KEY') ?? ''
-  if (!apiKey) throw new Error('AI_API_KEY secret not set')
+  const provider = model.provider
+  let apiKey = await getApiKey(provider)
+  if (!apiKey) {
+    apiKey = Deno.env.get('AI_API_KEY')
+  }
+  if (!apiKey) {
+    throw new Error(`No API key configured for provider "${provider}" and no AI_API_KEY fallback`)
+  }
 
   // 7. Load model profile (PREPARE stage)
   const profile = await loadModelProfile(model.id)
@@ -688,7 +695,10 @@ async function callProviderWithTimeout(
   messages: any[],
   profile: ModelProfile
 ): Promise<{ content: string; outputTokens: number }> {
-  const apiKey = Deno.env.get('AI_API_KEY') || ''
+  let apiKey = await getApiKey(provider)
+  if (!apiKey) {
+    apiKey = Deno.env.get('AI_API_KEY') || ''
+  }
   const outputBudget = computeOutputBudget(profile)
 
   const timeoutPromise = new Promise<never>((_, reject) =>
