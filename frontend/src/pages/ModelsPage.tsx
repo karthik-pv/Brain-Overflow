@@ -690,19 +690,34 @@ export function ModelsPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="relative">
-                          <Input
-                            type={showKeys[m.provider] ? 'text' : 'password'}
-                            value={keyInputs[m.provider] || ''}
-                            onChange={(e) => setKeyInputs(prev => ({ ...prev, [m.provider]: e.target.value }))}
-                            placeholder="sk-... or leave empty to use default"
-                          />
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <Input
+                              type={showKeys[m.provider] ? 'text' : 'password'}
+                              value={keyInputs[m.provider] || ''}
+                              onChange={(e) => setKeyInputs(prev => ({ ...prev, [m.provider]: e.target.value }))}
+                              placeholder="sk-... or leave empty to use default"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowKeys(prev => ({ ...prev, [m.provider]: !prev[m.provider] }))}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/40 hover:text-white/70"
+                            >
+                              {showKeys[m.provider] ? 'HIDE' : 'SHOW'}
+                            </button>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => setShowKeys(prev => ({ ...prev, [m.provider]: !prev[m.provider] }))}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/40 hover:text-white/70"
+                            onClick={async () => {
+                              const provider = m.provider;
+                              if (!provider || !keyInputs[provider]) return;
+                              await saveApiKey(provider, keyInputs[provider]);
+                              setApiKeys(prev => ({ ...prev, [provider]: keyInputs[provider].substring(0, 4) }));
+                              setKeyInputs(prev => ({ ...prev, [provider]: '' }));
+                            }}
+                            className="text-[10px] text-white/50 hover:text-white/80"
                           >
-                            {showKeys[m.provider] ? 'HIDE' : 'SHOW'}
+                            SAVE KEY
                           </button>
                         </div>
                       )}
