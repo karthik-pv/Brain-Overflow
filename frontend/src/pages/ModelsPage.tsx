@@ -123,11 +123,14 @@ export function ModelsPage() {
           model_id: form.model_id,
           provider: form.provider,
         })
-        if (keyInputs['__new__']) {
-          await saveApiKey(form.provider, keyInputs['__new__']).catch(() => {});
-          setKeyInputs(prev => ({ ...prev, __new__: '' }));
-          setApiKeys(prev => ({ ...prev, [form.provider]: keyInputs['__new__']!.substring(0, 4) }));
+        if (!keyInputs['__new__']) {
+          setErr('API key is required — this is a bring-your-own-key project')
+          setBusy(false)
+          return
         }
+        await saveApiKey(form.provider, keyInputs['__new__']).catch(() => {});
+        setKeyInputs(prev => ({ ...prev, __new__: '' }));
+        setApiKeys(prev => ({ ...prev, [form.provider]: keyInputs['__new__']!.substring(0, 4) }));
       }
       setForm(null)
       setEditingModelId(null)
@@ -329,14 +332,14 @@ export function ModelsPage() {
                       />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="add-api-key">API Key (optional)</Label>
+                  <Label htmlFor="add-api-key">API Key</Label>
                   <div className="relative">
                     <Input
                       id="add-api-key"
                       type={showKeys['__new__'] ? 'text' : 'password'}
                       value={keyInputs['__new__'] || ''}
                       onChange={(e) => setKeyInputs(prev => ({ ...prev, __new__: e.target.value }))}
-                      placeholder="sk-... or leave empty to use default"
+                      placeholder="sk-..."
                     />
                     <button
                       type="button"
@@ -702,7 +705,7 @@ export function ModelsPage() {
                               type={showKeys[m.provider] ? 'text' : 'password'}
                               value={keyInputs[m.provider] || ''}
                               onChange={(e) => setKeyInputs(prev => ({ ...prev, [m.provider]: e.target.value }))}
-                              placeholder="sk-... or leave empty to use default"
+                              placeholder="sk-..."
                             />
                             <button
                               type="button"
