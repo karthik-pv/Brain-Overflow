@@ -57,6 +57,30 @@ async function seed() {
       provider:   'fireworks',
       is_active:  false,
     },
+    {
+      model_name: 'GPT-4o',
+      model_id: 'gpt-4o',
+      provider: 'openai',
+      is_active: false,
+    },
+    {
+      model_name: 'GPT-4o Mini',
+      model_id: 'gpt-4o-mini',
+      provider: 'openai',
+      is_active: false,
+    },
+    {
+      model_name: 'Claude Sonnet 4',
+      model_id: 'claude-sonnet-4-20250514',
+      provider: 'anthropic',
+      is_active: false,
+    },
+    {
+      model_name: 'Claude 3.5 Haiku',
+      model_id: 'claude-3-5-haiku-20241022',
+      provider: 'anthropic',
+      is_active: false,
+    },
   ]
 
   for (const m of modelsToInsert) {
