@@ -41,6 +41,32 @@ interface FormState {
 
 const BLANK: FormState = { model_name: '', model_id: '', provider: 'fireworks' }
 
+const REASONING_PATTERNS = ['deepseek', 'kimi', 'o1', 'o3', 'o4', 'claude-opus']
+
+const PROVIDER_DEFAULTS: Record<string, {
+  max_tokens: number
+  reasoning_budget: number
+  temperature: number
+  timeout_ms: number
+  max_retries: number
+  strip_reasoning: boolean
+}> = {
+  fireworks: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 30000, max_retries: 2, strip_reasoning: false },
+  openai: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false },
+  anthropic: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false },
+  gemini: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false },
+  groq: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 15000, max_retries: 3, strip_reasoning: false },
+}
+
+function getProviderDefaults(provider: string, modelId: string) {
+  const base = PROVIDER_DEFAULTS[provider.toLowerCase()] ?? PROVIDER_DEFAULTS.fireworks
+  const isReasoning = REASONING_PATTERNS.some(p => modelId.toLowerCase().includes(p))
+  if (isReasoning) {
+    return { ...base, max_tokens: 16384, reasoning_budget: provider === 'fireworks' ? 6000 : 8000, timeout_ms: 120000, strip_reasoning: true }
+  }
+  return base
+}
+
 export function ModelsPage() {
   const [models, setModels] = useState<Model[]>([])
   const [form, setForm] = useState<FormState | null>(null)
@@ -125,15 +151,17 @@ export function ModelsPage() {
     setBusy(true)
     setErr('')
     try {
+      const model = models.find(m => m.id === modelId)
+      const defaults = getProviderDefaults(model?.provider ?? 'fireworks', model?.model_id ?? '')
       const profile = await getModelProfile(modelId)
-      setModelProfile(profile ?? {
-        temperature: 0.3,
-        max_tokens: 8192,
-        reasoning_budget: 0,
-        timeout_ms: 60000,
-        max_retries: 2,
-        prompt_format: 'json_schema',
-        strip_reasoning: true,
+      setModelProfile({
+        temperature: profile?.temperature ?? defaults.temperature,
+        max_tokens: profile?.max_tokens ?? defaults.max_tokens,
+        reasoning_budget: profile?.reasoning_budget ?? defaults.reasoning_budget,
+        timeout_ms: profile?.timeout_ms ?? defaults.timeout_ms,
+        max_retries: profile?.max_retries ?? defaults.max_retries,
+        strip_reasoning: profile?.strip_reasoning ?? defaults.strip_reasoning,
+        prompt_format: profile?.prompt_format ?? 'json_schema',
       })
       setConfiguringModel(modelId)
     } catch (e) {
@@ -256,22 +284,32 @@ export function ModelsPage() {
                   />
                 </div>
                 <div>
-                  <Label>PROVIDER</Label>
-                  <Input
-                    value={form.provider}
-                    onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                    placeholder="e.g. fireworks, openai, anthropic, gemini, groq"
-                    className="mt-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <Label>MODEL_ID</Label>
-                  <Input
-                    value={form.model_id}
-                    onChange={(e) => setForm({ ...form, model_id: e.target.value })}
-                    placeholder="model-id"
-                    className="mt-2"
-                  />
+                      <Label>PROVIDER</Label>
+                      <Input
+                        value={form.provider}
+                        onChange={(e) => {
+                          const provider = e.target.value
+                          setForm(prev => ({ ...prev, provider } as FormState))
+                          const defaults = getProviderDefaults(provider, form.model_id)
+                          setModelProfile(prev => ({ ...prev, ...defaults }))
+                        }}
+                        placeholder="e.g. fireworks, openai, anthropic, gemini, groq"
+                        className="mt-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label>MODEL_ID</Label>
+                      <Input
+                        value={form.model_id}
+                        onChange={(e) => {
+                          const modelId = e.target.value
+                          setForm(prev => ({ ...prev, model_id: modelId } as FormState))
+                          const defaults = getProviderDefaults(form.provider, modelId)
+                          setModelProfile(prev => ({ ...prev, ...defaults }))
+                        }}
+                        placeholder="model-id"
+                        className="mt-2"
+                      />
                 </div>
               </div>
 
