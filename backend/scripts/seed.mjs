@@ -69,8 +69,8 @@ async function seed() {
       is_active: false,
     },
     {
-      model_name: 'Gemma 3 27B',
-      model_id: 'gemma-3-27b-it',
+      model_name: 'Gemma 4 31B',
+      model_id: 'gemma-4-31b-it',
       provider: 'gemini',
       is_active: false,
     },
