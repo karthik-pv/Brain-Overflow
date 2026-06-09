@@ -44,11 +44,13 @@ const BLANK: FormState = { model_name: '', model_id: '', provider: 'fireworks' }
 export function ModelsPage() {
   const [models, setModels] = useState<Model[]>([])
   const [form, setForm] = useState<FormState | null>(null)
+  const [editingModelId, setEditingModelId] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const [configuringModel, setConfiguringModel] = useState<string | null>(null)
   const [modelProfile, setModelProfile] = useState<Partial<ModelProfile>>({})
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({})
 
   async function fetchAll() {
     try {
@@ -85,6 +87,7 @@ export function ModelsPage() {
         })
       }
       setForm(null)
+      setEditingModelId(null)
       fetchAll()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed to save')
@@ -140,8 +143,36 @@ export function ModelsPage() {
     }
   }
 
+  function validateProfile(): boolean {
+    const errors: Record<string, string> = {}
+    const p = modelProfile
+
+    if (p.max_tokens != null && (isNaN(p.max_tokens) || p.max_tokens < 1)) {
+      errors.max_tokens = 'Must be at least 1'
+    }
+    if (p.reasoning_budget != null && (isNaN(p.reasoning_budget) || p.reasoning_budget < 0)) {
+      errors.reasoning_budget = 'Cannot be negative'
+    }
+    if (p.max_tokens != null && p.reasoning_budget != null && p.reasoning_budget >= p.max_tokens) {
+      errors.reasoning_budget = 'Must be less than max tokens'
+    }
+    if (p.temperature != null && (isNaN(p.temperature) || p.temperature < 0 || p.temperature > 1)) {
+      errors.temperature = 'Must be between 0 and 1'
+    }
+    if (p.timeout_ms != null && (isNaN(p.timeout_ms) || p.timeout_ms < 1000)) {
+      errors.timeout_ms = 'Must be at least 1000ms'
+    }
+    if (p.max_retries != null && (isNaN(p.max_retries) || p.max_retries < 0)) {
+      errors.max_retries = 'Cannot be negative'
+    }
+
+    setProfileErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   async function saveModelProfile() {
     if (!configuringModel) return
+    if (!validateProfile()) return
     setBusy(true)
     setErr('')
     try {
@@ -153,6 +184,7 @@ export function ModelsPage() {
       }
       setConfiguringModel(null)
       setModelProfile({})
+      setProfileErrors({})
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed to save profile')
     } finally {
@@ -171,6 +203,7 @@ export function ModelsPage() {
           <Button
             onClick={() => {
               setForm({ ...BLANK })
+              setEditingModelId(null)
               setErr('')
             }}
           >
@@ -201,7 +234,7 @@ export function ModelsPage() {
         </AnimatePresence>
 
         <AnimatePresence>
-          {form && (
+          {form && !editingModelId && (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -209,7 +242,7 @@ export function ModelsPage() {
               className="mb-8 border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/60 backdrop-blur p-6"
             >
               <h2 className="font-pixel text-base tracking-[0.2em] uppercase mb-5">
-                {form.id ? 'EDIT_MODEL' : 'ADD_MODEL'}
+                ADD_MODEL
               </h2>
 
               <div className="space-y-4">
@@ -254,116 +287,6 @@ export function ModelsPage() {
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {configuringModel && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="mb-8 border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/60 backdrop-blur p-6"
-            >
-              <h2 className="font-pixel text-base tracking-[0.2em] uppercase mb-5">
-                MODEL_CONFIG
-              </h2>
-
-              <div className="space-y-4">
-                <div>
-                  <Label>TEMPERATURE: {(modelProfile.temperature ?? 0.3).toFixed(1)}</Label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    value={modelProfile.temperature ?? 0.3}
-                    onChange={(e) => setModelProfile({ ...modelProfile, temperature: parseFloat(e.target.value) })}
-                    className="mt-2 w-full accent-[color:var(--color-edge-glow)]"
-                  />
-                </div>
-
-                <div>
-                  <Label>MAX TOKENS</Label>
-                  <Input
-                    type="number"
-                    value={modelProfile.max_tokens ?? 8192}
-                    onChange={(e) => setModelProfile({ ...modelProfile, max_tokens: parseInt(e.target.value) })}
-                    className="mt-2"
-                  />
-                </div>
-
-                <div>
-                  <Label>REASONING BUDGET</Label>
-                  <Input
-                    type="number"
-                    value={modelProfile.reasoning_budget ?? 0}
-                    onChange={(e) => setModelProfile({ ...modelProfile, reasoning_budget: parseInt(e.target.value) })}
-                    className="mt-2"
-                  />
-                  <p className="text-xs text-[color:var(--color-text-mute)] mt-1">
-                    Output budget: {(modelProfile.max_tokens ?? 8192) - (modelProfile.reasoning_budget ?? 0)} tokens
-                  </p>
-                </div>
-
-                <div>
-                  <Label>TIMEOUT (MS)</Label>
-                  <Input
-                    type="number"
-                    value={modelProfile.timeout_ms ?? 60000}
-                    onChange={(e) => setModelProfile({ ...modelProfile, timeout_ms: parseInt(e.target.value) })}
-                    className="mt-2"
-                  />
-                </div>
-
-                <div>
-                  <Label>MAX RETRIES</Label>
-                  <Input
-                    type="number"
-                    value={modelProfile.max_retries ?? 2}
-                    onChange={(e) => setModelProfile({ ...modelProfile, max_retries: parseInt(e.target.value) })}
-                    className="mt-2"
-                  />
-                </div>
-
-                <div>
-                  <Label>PROMPT FORMAT</Label>
-                  <Select
-                    value={modelProfile.prompt_format ?? 'json_schema'}
-                    onValueChange={(v) => setModelProfile({ ...modelProfile, prompt_format: v as ModelProfile['prompt_format'] })}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="json_schema">JSON Schema</SelectItem>
-                      <SelectItem value="xml_tags">XML Tags</SelectItem>
-                      <SelectItem value="markdown_sections">Markdown Sections</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="strip-reasoning"
-                    checked={modelProfile.strip_reasoning !== false}
-                    onChange={(e) => setModelProfile({ ...modelProfile, strip_reasoning: e.target.checked })}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="strip-reasoning" className="mb-0 cursor-pointer">Strip reasoning tokens</Label>
-                </div>
-              </div>
-
-              <div className="mt-6 flex gap-3">
-                <Button onClick={saveModelProfile} disabled={busy}>
-                  {busy ? 'SAVING…' : 'SAVE CONFIG'}
-                </Button>
-                <Button variant="ghost" onClick={() => { setConfiguringModel(null); setModelProfile({}) }}>
-                  CANCEL
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {models.length === 0 && !form ? (
           <div className="py-24 text-center font-mono text-sm text-[color:var(--color-text-mute)]">
             no models configured. add one to start processing.
@@ -372,8 +295,8 @@ export function ModelsPage() {
           <div className="space-y-3">
             <AnimatePresence>
               {models.map((m) => (
+                <div key={m.id}>
                 <motion.div
-                  key={m.id}
                   layout
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -439,6 +362,8 @@ export function ModelsPage() {
                               model_id: m.model_id,
                               provider: m.provider,
                             })
+                            setEditingModelId(m.id)
+                            setConfiguringModel(null)
                             setErr('')
                           }}
                           className="p-1.5 text-[color:var(--color-text-mute)] hover:text-[color:var(--color-text)]"
@@ -455,6 +380,201 @@ export function ModelsPage() {
                     </div>
                   </div>
                 </motion.div>
+                {editingModelId === m.id && form && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/60 backdrop-blur p-6 -mt-px"
+                  >
+                    <h2 className="font-pixel text-sm tracking-[0.2em] uppercase mb-5">
+                      EDIT_MODEL
+                    </h2>
+
+                    <div className="space-y-4">
+                      <div>
+                        <Label>DISPLAY_NAME</Label>
+                        <Input
+                          value={form.model_name}
+                          onChange={(e) => setForm({ ...form, model_name: e.target.value })}
+                          placeholder="e.g. Llama 3.1 70B"
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label>PROVIDER</Label>
+                        <Input
+                          value={form.provider}
+                          onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                          placeholder="e.g. fireworks, openai, anthropic, gemini, groq"
+                          className="mt-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label>MODEL_ID</Label>
+                        <Input
+                          value={form.model_id}
+                          onChange={(e) => setForm({ ...form, model_id: e.target.value })}
+                          placeholder="model-id"
+                          className="mt-2"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex gap-3">
+                      <Button onClick={save} disabled={busy}>
+                        {busy ? 'SAVING…' : 'SAVE'}
+                      </Button>
+                      <Button variant="ghost" onClick={() => { setForm(null); setEditingModelId(null) }}>
+                        CANCEL
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+                {configuringModel === m.id && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/60 backdrop-blur p-6 -mt-px"
+                  >
+                    <h2 className="font-pixel text-sm tracking-[0.2em] uppercase mb-5">
+                      MODEL_CONFIG
+                    </h2>
+
+                    <div className="space-y-4">
+                      <div>
+                        <Label>TEMPERATURE: {(modelProfile.temperature ?? 0.3).toFixed(1)}</Label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.1}
+                          value={modelProfile.temperature ?? 0.3}
+                          onChange={(e) => {
+                            setModelProfile({ ...modelProfile, temperature: parseFloat(e.target.value) || 0.3 })
+                            setProfileErrors({})
+                          }}
+                          className="mt-2 w-full accent-[color:var(--color-edge-glow)]"
+                        />
+                        {profileErrors.temperature && (
+                          <p className="text-xs text-[color:var(--color-weak)] mt-1">{profileErrors.temperature}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>MAX TOKENS</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={modelProfile.max_tokens ?? 8192}
+                          onChange={(e) => {
+                            setModelProfile({ ...modelProfile, max_tokens: parseInt(e.target.value) || 8192 })
+                            setProfileErrors({})
+                          }}
+                          className="mt-2"
+                        />
+                        {profileErrors.max_tokens && (
+                          <p className="text-xs text-[color:var(--color-weak)] mt-1">{profileErrors.max_tokens}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>REASONING BUDGET</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={modelProfile.reasoning_budget ?? 0}
+                          onChange={(e) => {
+                            setModelProfile({ ...modelProfile, reasoning_budget: parseInt(e.target.value) || 0 })
+                            setProfileErrors({})
+                          }}
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-[color:var(--color-text-mute)] mt-1">
+                          Output budget: {(modelProfile.max_tokens ?? 8192) - (modelProfile.reasoning_budget ?? 0)} tokens
+                        </p>
+                        {profileErrors.reasoning_budget && (
+                          <p className="text-xs text-[color:var(--color-weak)] mt-1">{profileErrors.reasoning_budget}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>TIMEOUT (MS)</Label>
+                        <Input
+                          type="number"
+                          min={1000}
+                          step={1000}
+                          value={modelProfile.timeout_ms ?? 60000}
+                          onChange={(e) => {
+                            setModelProfile({ ...modelProfile, timeout_ms: parseInt(e.target.value) || 60000 })
+                            setProfileErrors({})
+                          }}
+                          className="mt-2"
+                        />
+                        {profileErrors.timeout_ms && (
+                          <p className="text-xs text-[color:var(--color-weak)] mt-1">{profileErrors.timeout_ms}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>MAX RETRIES</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          value={modelProfile.max_retries ?? 2}
+                          onChange={(e) => {
+                            setModelProfile({ ...modelProfile, max_retries: parseInt(e.target.value) || 2 })
+                            setProfileErrors({})
+                          }}
+                          className="mt-2"
+                        />
+                        {profileErrors.max_retries && (
+                          <p className="text-xs text-[color:var(--color-weak)] mt-1">{profileErrors.max_retries}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>PROMPT FORMAT</Label>
+                        <Select
+                          value={modelProfile.prompt_format ?? 'json_schema'}
+                          onValueChange={(v) => setModelProfile({ ...modelProfile, prompt_format: v as ModelProfile['prompt_format'] })}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="json_schema">JSON Schema</SelectItem>
+                            <SelectItem value="xml_tags">XML Tags</SelectItem>
+                            <SelectItem value="markdown_sections">Markdown Sections</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`strip-reasoning-${m.id}`}
+                          checked={modelProfile.strip_reasoning !== false}
+                          onChange={(e) => setModelProfile({ ...modelProfile, strip_reasoning: e.target.checked })}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor={`strip-reasoning-${m.id}`} className="mb-0 cursor-pointer">Strip reasoning tokens</Label>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex gap-3">
+                      <Button onClick={saveModelProfile} disabled={busy}>
+                        {busy ? 'SAVING…' : 'SAVE CONFIG'}
+                      </Button>
+                      <Button variant="ghost" onClick={() => { setConfiguringModel(null); setModelProfile({}); setProfileErrors({}) }}>
+                        CANCEL
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+                </div>
               ))}
             </AnimatePresence>
           </div>

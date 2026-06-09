@@ -54,6 +54,14 @@ const CONTEXT_LABELS: Record<ContextMode, string> = {
   full_history_json: 'Full History JSON',
 }
 
+const DEFAULT_CUSTOM_SCHEMA = `IMPORTANT: You MUST return ONLY a valid JSON object with exactly these three keys:
+{
+  "analysis": "your detailed analysis and response here (markdown supported)",
+  "category": "MUST be exactly one of: startup_idea, automation, personal_tool, dev_tool, other",
+  "score": "MUST be exactly one of: strong, weak, needs_pivot, needs_refinement"
+}
+Do NOT wrap in markdown code fences. Return raw JSON only.`
+
 export function PromptsPage() {
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [form, setForm] = useState<FormState | null>(null)
@@ -209,26 +217,44 @@ export function PromptsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2 mt-4">
-                  <input
-                    id="use-system-format"
-                    type="checkbox"
-                    checked={form.use_system_format}
-                    onChange={(e) => setForm({ ...form, use_system_format: e.target.checked })}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="use-system-format" className="mb-0">Use system output format</Label>
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="use-system-format"
+                      type="checkbox"
+                      checked={form.use_system_format}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setForm({
+                          ...form,
+                          use_system_format: checked,
+                          custom_schema: checked ? null : (form.custom_schema || DEFAULT_CUSTOM_SCHEMA),
+                        })
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="use-system-format" className="mb-0">Use system output format</Label>
+                  </div>
+                  <p className="font-mono text-xs text-[color:var(--color-text-mute)] ml-6">
+                    When enabled, the system automatically instructs the model to return structured JSON
+                    with analysis, category, and score fields. Disable only if you need a completely custom
+                    output format — you must provide explicit format instructions below.
+                  </p>
                 </div>
                 {!form.use_system_format && (
                   <div className="mt-4">
-                    <Label>CUSTOM SCHEMA</Label>
+                    <Label>CUSTOM OUTPUT FORMAT</Label>
                     <Textarea
                       value={form.custom_schema || ''}
                       onChange={(e) => setForm({ ...form, custom_schema: e.target.value })}
-                      placeholder="Enter custom output format instructions..."
-                      rows={5}
-                      className="mt-2 font-mono"
+                      placeholder="Describe the exact output format you want the model to return..."
+                      rows={6}
+                      className="mt-2 font-mono text-sm"
                     />
+                    <p className="font-mono text-xs text-[color:var(--color-text-mute)] mt-1">
+                      The normalization pipeline will still attempt to extract analysis, category, and score
+                      from the response. Make sure your format instructions produce parseable output.
+                    </p>
                   </div>
                 )}
               </div>

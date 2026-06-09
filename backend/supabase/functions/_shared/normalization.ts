@@ -51,6 +51,9 @@ export function extractResponse(text: string, format: string): ExtractionResult 
   if (format === 'xml_tags') {
     return extractXml(text)
   }
+  if (format === 'markdown_sections') {
+    return extractMarkdown(text)
+  }
   return extractJson(text)
 }
 
@@ -69,13 +72,13 @@ function extractJson(text: string): ExtractionResult {
     }
   }
 
-  // Try raw JSON object
-  const raw = text.match(/\{[\s\S]*\}/)
-  if (raw) {
+  // Try balanced JSON object (non-greedy, handles nested braces)
+  const json = extractBalancedJson(text)
+  if (json) {
     try {
       return {
-        content: JSON.parse(raw[0].trim()),
-        prose: text.replace(raw[0], '').trim() || null,
+        content: JSON.parse(json),
+        prose: text.replace(json, '').trim() || null,
         error: null,
       }
     } catch (e: any) {
@@ -84,6 +87,65 @@ function extractJson(text: string): ExtractionResult {
   }
 
   return { content: null, prose: text.trim(), error: 'No JSON found in response' }
+}
+
+function extractBalancedJson(text: string): string | null {
+  const start = text.indexOf('{')
+  if (start === -1) return null
+
+  let depth = 0
+  let inString = false
+  let escape = false
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+
+    if (escape) {
+      escape = false
+      continue
+    }
+
+    if (ch === '\\' && inString) {
+      escape = true
+      continue
+    }
+
+    if (ch === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (ch === '{') depth++
+    if (ch === '}') {
+      depth--
+      if (depth === 0) {
+        return text.slice(start, i + 1)
+      }
+    }
+  }
+
+  return null
+}
+
+function extractMarkdown(text: string): ExtractionResult {
+  const result: any = {}
+
+  const analysisMatch = text.match(/##\s*Analysis\s*\n([\s\S]*?)(?=\n##\s*\w|\n*$)/i)
+  if (analysisMatch) result.analysis = analysisMatch[1].trim()
+
+  const categoryMatch = text.match(/##\s*Category\s*\n\s*(\S[^\n]*)/i)
+  if (categoryMatch) result.category = categoryMatch[1].trim()
+
+  const scoreMatch = text.match(/##\s*Score\s*\n\s*(\S[^\n]*)/i)
+  if (scoreMatch) result.score = scoreMatch[1].trim()
+
+  if (Object.keys(result).length === 0) {
+    return { content: null, prose: text.trim(), error: 'No markdown sections found' }
+  }
+
+  return { content: result, prose: null, error: null }
 }
 
 function extractXml(text: string): ExtractionResult {

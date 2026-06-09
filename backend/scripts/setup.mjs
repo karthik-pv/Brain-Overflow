@@ -35,7 +35,12 @@ const { SUPABASE_PROJECT_REF, SUPABASE_URL, SUPABASE_SECRET_KEY, TELEGRAM_BOT_TO
 function run(cmd, label) {
   console.log(`\n[${label}] Running: ${cmd}`)
   try {
-    execSync(cmd, { cwd: ROOT, stdio: 'inherit' })
+    // Inject SUPABASE_ACCESS_TOKEN so the CLI authenticates without `supabase login`
+    const env = { ...process.env }
+    if (process.env.SUPABASE_ACCESS_TOKEN) {
+      env.SUPABASE_ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN
+    }
+    execSync(cmd, { cwd: ROOT, stdio: 'inherit', env })
   } catch (e) {
     console.error(`\nFAILED at step: ${label}\n`)
     process.exit(1)
@@ -62,6 +67,11 @@ if (!existsSync(resolve(ROOT, 'node_modules'))) {
 }
 
 // 2. Link Supabase project
+if (!process.env.SUPABASE_ACCESS_TOKEN) {
+  console.warn('\n⚠  SUPABASE_ACCESS_TOKEN not set in .env.')
+  console.warn('   Add it from https://supabase.com/dashboard/account/tokens')
+  console.warn('   Without it, steps 2-5 (supabase CLI calls) will fail.\n')
+}
 run(`npx supabase link --project-ref ${SUPABASE_PROJECT_REF}`, '2/8 Link Supabase')
 
 // 3. Run migrations

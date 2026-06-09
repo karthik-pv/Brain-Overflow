@@ -40,17 +40,17 @@ const FN = 'process-prompt'
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsPreflight()
 
-  let body: { idea_id?: string; prompt_index?: number; custom_prompt_id?: string; run_id?: string }
+  let body: { idea_id?: string; prompt_index?: number; custom_prompt_id?: string; run_id?: string; flow_id?: string }
   try { body = await req.json() }
   catch { return errorResponse('Invalid JSON body', 400) }
 
-  const { idea_id, prompt_index, custom_prompt_id, run_id } = body
+  const { idea_id, prompt_index, custom_prompt_id, run_id, flow_id } = body
   if (!idea_id) return errorResponse('Missing idea_id', 400)
 
-  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id }
+  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id, flow_id }
 
   try {
-    await runPrompt(idea_id, prompt_index, custom_prompt_id, run_id)
+    await runPrompt(idea_id, prompt_index, custom_prompt_id, run_id, flow_id)
     return jsonResponse({ ok: true })
   } catch (err) {
     logError(ctx, err, 'process-prompt threw')
@@ -60,9 +60,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 // ─── Main Logic ──────────────────────────────────────────────────────────────
 
-async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_id?: string, run_id?: string): Promise<void> {
+async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_id?: string, run_id?: string, flow_id?: string): Promise<void> {
   const supabase = createServiceClient()
-  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id }
+  const ctx = { fn: FN, idea_id, prompt_index, custom_prompt_id, run_id, flow_id }
 
   // 1. Load idea
   const { data: idea, error: ideaErr } = await supabase
@@ -86,10 +86,12 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
 
     if (prompt_index == null) throw new Error('Missing prompt_index or custom_prompt_id')
 
+    const effectiveFlowId = flow_id || idea.flow_id
+
     const { data: flow, error: flowErr } = await supabase
       .from('flows')
       .select('id, flow_name, prompt_ids')
-      .eq('id', idea.flow_id)
+      .eq('id', effectiveFlowId)
       .single()
 
     if (flowErr || !flow) throw new Error(`Flow not found: ${flowErr?.message}`)
@@ -240,7 +242,19 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     prompt_format: 'json_schema' as const,
     normalization_config: {
       reasoning_patterns: { tag_based: [] as string[], prefix_based: [] as string[] },
-      synonym_map: {} as Record<string, string>,
+      synonym_map: {
+        good: 'strong',
+        great: 'strong',
+        excellent: 'strong',
+        promising: 'strong',
+        bad: 'weak',
+        poor: 'weak',
+        mediocre: 'weak',
+        pivot: 'needs_pivot',
+        rethink: 'needs_pivot',
+        refine: 'needs_refinement',
+        improve: 'needs_refinement',
+      } as Record<string, string>,
       double_verdict_strategy: 'last_occurrence'
     }
   }
@@ -251,7 +265,10 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   // 9. Build system prompt (PREPARE stage)
   const systemPrompt = buildSystemPrompt(effectiveProfile, prompt, schema)
 
-  // 10. Process with retry (CALL LLM → NORMALIZE → VALIDATE)
+  // 10. Strip conflicting format instructions when system format is active
+  const sanitizedInput = sanitizePromptForSystemFormat(finalInput, prompt.use_system_format)
+
+  // 11. Process with retry (CALL LLM → NORMALIZE → VALIDATE)
   let aiAnalysis = ''
   let category: string | null = null
   let score: string | null = null
@@ -265,7 +282,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   for (let attempt = 1; attempt <= effectiveProfile.max_retries; attempt++) {
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: finalInput }
+      { role: 'user', content: sanitizedInput }
     ]
 
     if (attempt > 1) {
@@ -424,7 +441,8 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   }
 
   // Otherwise, handle flow logic
-  const { data: flow } = await supabase.from('flows').select('prompt_ids').eq('id', idea.flow_id).single()
+  const effectiveFlowId = flow_id || idea.flow_id
+  const { data: flow } = await supabase.from('flows').select('prompt_ids').eq('id', effectiveFlowId).single()
   const promptIds = (flow?.prompt_ids as string[]) || []
   const isLast = (prompt_index || 0) + 1 >= promptIds.length
 
@@ -454,11 +472,19 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-    const nextCall = fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
+    // Add a brief inter-step pause for Gemini (free tier = 10-30 RPM).
+    // Each LLM call already takes 5-20s, but back-to-back chain invocations
+    // can still burst past the per-minute quota on a 4-step flow.
+    const interStepDelayMs = model.provider === 'gemini' ? 3000 : 0
+
+    const nextCall = (interStepDelayMs > 0
+      ? new Promise(res => setTimeout(res, interStepDelayMs))
+      : Promise.resolve()
+    ).then(() => fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idea_id, prompt_index: prompt_index + 1, run_id }),
-    }).then(r => {
+      body: JSON.stringify({ idea_id, prompt_index: (prompt_index ?? 0) + 1, run_id, flow_id }),
+    })).then(r => {
       if (!r.ok) r.text().then(t =>
         logError(ctx, new Error(`Next invoke failed: ${r.status} ${t}`))
       )
@@ -466,7 +492,7 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
 
     // @ts-ignore
     if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(nextCall)
-    log(ctx, `Fired process-prompt(${prompt_index + 1}) asynchronously`)
+    log(ctx, `Fired process-prompt(${(prompt_index ?? 0) + 1}) asynchronously${interStepDelayMs > 0 ? ` (after ${interStepDelayMs}ms inter-step delay)` : ''}`)
   }
 }
 
@@ -501,9 +527,62 @@ async function loadPromptSchema(promptId: string) {
   }
 }
 
+/**
+ * Strips conflicting format instructions from prompt text when system format is active.
+ * These sections tell the model "do NOT create JSON" which directly contradicts
+ * the system prompt that requires JSON output.
+ *
+ * Uses a line-by-line state machine to reliably remove the entire
+ * "IMPORTANT RESPONSE BEHAVIOR:" block (including Do NOT: bullets and
+ * associated instructions) while preserving all other prompt content.
+ */
+function sanitizePromptForSystemFormat(promptText: string, useSystemFormat: boolean): string {
+  if (!useSystemFormat) return promptText
+
+  const lines = promptText.split('\n')
+  let inBlock = false
+  const result: string[] = []
+
+  for (const line of lines) {
+    // Start of the conflicting block
+    if (/^\s*IMPORTANT RESPONSE BEHAVIOR:/i.test(line)) {
+      inBlock = true
+      continue
+    }
+
+    // End of block: hit a --- separator on its own line
+    if (inBlock && /^\s*---\s*$/.test(line)) {
+      inBlock = false
+      continue
+    }
+
+    // End of block: hit a STEP line (in case there's no --- after the block)
+    if (inBlock && /^\s*STEP\s+\d+/i.test(line)) {
+      inBlock = false
+      // Don't skip — this line is actual content
+    }
+
+    // Skip lines inside the conflicting block
+    if (inBlock) continue
+
+    result.push(line)
+  }
+
+  return result.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 function buildSystemPrompt(profile: ModelProfile, prompt: any, schema: any): string {
   if (!prompt.use_system_format) {
-    return prompt.custom_schema || ''
+    const custom = typeof prompt.custom_schema === 'string'
+      ? prompt.custom_schema
+      : (prompt.custom_schema ? JSON.stringify(prompt.custom_schema) : '')
+    if (!custom.trim()) {
+      throw new Error(
+        'Prompt has use_system_format=false but custom_schema is empty. ' +
+        'Either enable system format or provide custom output format instructions.'
+      )
+    }
+    return custom
   }
 
   const categories = schema.allowed_categories?.join(', ') || 'startup_idea, automation, personal_tool, dev_tool, other'
@@ -511,18 +590,32 @@ function buildSystemPrompt(profile: ModelProfile, prompt: any, schema: any): str
 
   switch (profile.prompt_format) {
     case 'xml_tags':
-      return `IMPORTANT: Return your response in this exact XML format:
+      return `Return your response in this exact XML format:
 <response>
-  <analysis>Your detailed analysis here</analysis>
+  <analysis>Your analysis here. Use markdown-style formatting within:
+- ## headers for sections, ### for subsections
+- | tables | for | comparisons |
+- - bullets (1-2 lines each)
+- **bold** for key terms only
+- > blockquotes for key takeaways
+- Keep paragraphs to 3-4 sentences max
+  </analysis>
   <category>One of: ${categories}</category>
   <score>One of: ${scores}</score>
 </response>`
 
     case 'markdown_sections':
-      return `IMPORTANT: Format your response with these exact sections:
+      return `Format your response with these exact sections:
 
 ## Analysis
-[Your detailed analysis]
+[Your analysis here. Follow these formatting rules:
+- Use ### sub-headers for logical sections
+- Use | tables | for | data and comparisons |
+- Use - bullets (1-2 lines each, max 2 levels deep)
+- Use **bold** for key terms and verdicts only
+- Use > blockquotes for important takeaways
+- Keep paragraphs to 3-4 sentences
+- Separate major sections with --- horizontal rules]
 
 ## Category
 [MUST be exactly one of: ${categories}]
@@ -532,13 +625,45 @@ function buildSystemPrompt(profile: ModelProfile, prompt: any, schema: any): str
 
     case 'json_schema':
     default:
-      return `IMPORTANT: You MUST return ONLY a valid JSON object with exactly these three keys:
+      return `You MUST return ONLY a valid JSON object with exactly these three keys:
 {
-  "analysis": "your detailed analysis and response here (markdown supported)",
-  "category": "MUST be exactly one of: ${categories}",
-  "score": "MUST be exactly one of: ${scores}"
+  "analysis": "your response",
+  "category": "one of: ${categories}",
+  "score": "one of: ${scores}"
 }
-Do NOT wrap in markdown code fences. Return raw JSON only.`
+
+CRITICAL FORMATTING RULES for the "analysis" field:
+
+1. STRUCTURE: Use ## headers for major sections. Use ### for subsections.
+   Separate sections with a blank line. Use --- horizontal rules between
+   major conceptual shifts only.
+
+2. TABLES: When comparing options, listing features, or presenting data,
+   use markdown tables. Keep column count to 3-4 max. Column widths
+   should be balanced. Example:
+   | Aspect | Detail | Priority |
+   |--------|--------|----------|
+
+3. BULLETS: Use - for lists. Each bullet must be 1-2 lines maximum.
+   Never nest bullets more than 2 levels deep. If a bullet needs more
+   than 2 lines, break it into sub-bullets or a short paragraph.
+
+4. PARAGRAPHS: Keep to 3-4 sentences maximum. One idea per paragraph.
+   Use bold (**text**) sparingly — only for key terms, verdicts, or
+   critical warnings. Never bold entire sentences.
+
+5. CALLOUTS: Use > blockquotes for important takeaways, warnings, or
+   key insights that must not be missed.
+
+6. CODE: Use inline \`code\` for technical terms, file names, or CLI
+   commands. Use fenced code blocks only for multi-line code snippets.
+
+7. READABILITY: Every section must be scannable in under 10 seconds.
+   If a section runs longer than 15 lines, split it with sub-headers.
+   The entire analysis should feel like a well-designed document, not
+   a wall of text.
+
+Do NOT wrap the JSON in markdown code fences. Return raw JSON only.`
   }
 }
 

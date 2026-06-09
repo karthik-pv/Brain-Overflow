@@ -33,6 +33,10 @@ export function ProcessingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
+    let timerId: number | null = null
+
+    const FAST_INTERVAL = 2000
+    const IDLE_INTERVAL = 30000
 
     async function poll() {
       if (document.hidden) return
@@ -67,7 +71,7 @@ export function ProcessingProvider({ children }: { children: ReactNode }) {
           }
         }
         prevSnapshotRef.current = new Map(
-          rows.map((r) => [r.id, { status: r.status, score: r.score, idea: r.idea }]),
+          rows.map((r) => [r.id, { status: r.status, score: r.idea, idea: r.idea }]),
         )
         setState((s) => ({
           activeIds,
@@ -76,16 +80,22 @@ export function ProcessingProvider({ children }: { children: ReactNode }) {
             ? [...s.completedEvents, ...newCompleted].slice(-20)
             : s.completedEvents,
         }))
+
+        if (!cancelled) {
+          const nextInterval = activeIds.length > 0 ? FAST_INTERVAL : IDLE_INTERVAL
+          timerId = window.setTimeout(poll, nextInterval)
+        }
       } catch {
-        /* swallow */
+        if (!cancelled) {
+          timerId = window.setTimeout(poll, IDLE_INTERVAL)
+        }
       }
     }
 
     poll()
-    const id = window.setInterval(poll, 2000)
     return () => {
       cancelled = true
-      window.clearInterval(id)
+      if (timerId !== null) window.clearTimeout(timerId)
     }
   }, [])
 
