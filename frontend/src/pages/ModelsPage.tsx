@@ -40,7 +40,7 @@ interface FormState {
   provider: string
 }
 
-const BLANK: FormState = { model_name: '', model_id: '', provider: 'fireworks' }
+const BLANK: FormState = { model_name: '', model_id: '', provider: 'openai' }
 
 const REASONING_PATTERNS = ['deepseek', 'kimi', 'o1', 'o3', 'o4', 'claude-opus']
 
@@ -306,17 +306,24 @@ export function ModelsPage() {
                 </div>
                 <div>
                       <Label>PROVIDER</Label>
-                      <Input
+                      <Select
                         value={form.provider}
-                        onChange={(e) => {
-                          const provider = e.target.value
+                        onValueChange={(provider) => {
                           setForm(prev => ({ ...prev, provider } as FormState))
                           const defaults = getProviderDefaults(provider, form.model_id)
                           setModelProfile(prev => ({ ...prev, ...defaults }))
                         }}
-                        placeholder="e.g. fireworks, openai, anthropic, gemini, groq"
-                        className="mt-2 text-sm"
-                      />
+                      >
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="openai">OpenAI</SelectItem>
+                          <SelectItem value="anthropic">Anthropic</SelectItem>
+                          <SelectItem value="gemini">Google (Gemini / Gemma)</SelectItem>
+                          <SelectItem value="fireworks">Fireworks AI</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label>MODEL_ID</Label>
@@ -484,12 +491,20 @@ export function ModelsPage() {
                       </div>
                       <div>
                         <Label>PROVIDER</Label>
-                        <Input
+                        <Select
                           value={form.provider}
-                          onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                          placeholder="e.g. fireworks, openai, anthropic, gemini, groq"
-                          className="mt-2 text-sm"
-                        />
+                          onValueChange={(provider) => setForm({ ...form, provider })}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="openai">OpenAI</SelectItem>
+                            <SelectItem value="anthropic">Anthropic</SelectItem>
+                            <SelectItem value="gemini">Google (Gemini / Gemma)</SelectItem>
+                            <SelectItem value="fireworks">Fireworks AI</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label>MODEL_ID</Label>
