@@ -1,6 +1,10 @@
 import { createServiceClient } from './db.ts';
 
-const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || '';
+function getEncryptionKey(): string {
+  const key = Deno.env.get('ENCRYPTION_KEY');
+  if (!key) throw new Error('Missing ENCRYPTION_KEY environment variable');
+  return key;
+}
 
 export async function storeApiKey(provider: string, plaintextKey: string): Promise<void> {
   const sb = createServiceClient();
@@ -9,7 +13,7 @@ export async function storeApiKey(provider: string, plaintextKey: string): Promi
     p_provider: provider,
     p_plaintext: plaintextKey,
     p_key_prefix: keyPrefix,
-    p_encryption_key: ENCRYPTION_KEY,
+    p_encryption_key: getEncryptionKey(),
   });
   if (error) throw error;
 }
@@ -18,7 +22,7 @@ export async function getApiKey(provider: string): Promise<string | null> {
   const sb = createServiceClient();
   const { data, error } = await sb.rpc('get_api_key', {
     p_provider: provider,
-    p_encryption_key: ENCRYPTION_KEY,
+    p_encryption_key: getEncryptionKey(),
   });
   if (error) return null;
   return data as string | null;
