@@ -42,3 +42,7 @@ BEGIN
   RETURN result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Restrict function execution to service_role only (edge functions)
+REVOKE EXECUTE ON FUNCTION store_api_key FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION get_api_key FROM PUBLIC, anon, authenticated;
