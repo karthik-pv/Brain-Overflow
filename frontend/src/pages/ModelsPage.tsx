@@ -51,13 +51,14 @@ const PROVIDER_DEFAULTS: Record<string, {
   timeout_ms: number
   max_retries: number
   strip_reasoning: boolean
+  prompt_format: 'json_schema' | 'xml_tags' | 'markdown_sections'
 }> = {
-  fireworks: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 30000, max_retries: 2, strip_reasoning: false },
-  openai: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false },
-  anthropic: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false },
-  gemini: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false },
-  google: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false },
-  groq: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 15000, max_retries: 3, strip_reasoning: false },
+  fireworks: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 30000, max_retries: 2, strip_reasoning: false, prompt_format: 'json_schema' },
+  openai: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false, prompt_format: 'json_schema' },
+  anthropic: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false, prompt_format: 'json_schema' },
+  gemini: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false, prompt_format: 'markdown_sections' },
+  google: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false, prompt_format: 'markdown_sections' },
+  groq: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 15000, max_retries: 3, strip_reasoning: false, prompt_format: 'json_schema' },
 }
 
 function getProviderDefaults(provider: string, modelId: string) {
@@ -182,7 +183,7 @@ export function ModelsPage() {
         timeout_ms: profile?.timeout_ms ?? defaults.timeout_ms,
         max_retries: profile?.max_retries ?? defaults.max_retries,
         strip_reasoning: profile?.strip_reasoning ?? defaults.strip_reasoning,
-        prompt_format: profile?.prompt_format ?? 'json_schema',
+        prompt_format: profile?.prompt_format ?? defaults.prompt_format,
       })
       setConfiguringModel(modelId)
     } catch (e) {
