@@ -37,26 +37,13 @@ const sb = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
 async function seed() {
   // ── 1. Seed Models ──────────────────────────────────────────────────────────
   console.log('[1/3] Seeding models...')
-  // Valid Fireworks serverless model IDs — these are confirmed deployed
+  console.log('  Cleaning up existing models...')
+  const { data: oldProfiles } = await sb.from('model_profiles').select('id')
+  if (oldProfiles?.length) await sb.from('model_profiles').delete().in('id', oldProfiles.map(r => r.id))
+  const { data: oldModels } = await sb.from('models').select('id')
+  if (oldModels?.length) await sb.from('models').delete().in('id', oldModels.map(r => r.id))
+  console.log('  Inserting new models...')
   const modelsToInsert = [
-    {
-      model_name: 'Llama 3.1 70B Instruct (Fireworks)',
-      model_id:   'accounts/fireworks/models/llama-v3p1-70b-instruct',
-      provider:   'fireworks',
-      is_active:  true,   // ← primary active model
-    },
-    {
-      model_name: 'Llama 3.1 8B Instruct (Fireworks)',
-      model_id:   'accounts/fireworks/models/llama-v3p1-8b-instruct',
-      provider:   'fireworks',
-      is_active:  false,
-    },
-    {
-      model_name: 'Mixtral 8x7B Instruct (Fireworks)',
-      model_id:   'accounts/fireworks/models/mixtral-8x7b-instruct',
-      provider:   'fireworks',
-      is_active:  false,
-    },
     {
       model_name: 'GPT-4o',
       model_id: 'gpt-4o',
@@ -79,6 +66,30 @@ async function seed() {
       model_name: 'Claude 3.5 Haiku',
       model_id: 'claude-3-5-haiku-20241022',
       provider: 'anthropic',
+      is_active: false,
+    },
+    {
+      model_name: 'Gemma 3 27B',
+      model_id: 'gemma-3-27b-it',
+      provider: 'gemini',
+      is_active: false,
+    },
+    {
+      model_name: 'Gemini 2.5 Flash',
+      model_id: 'gemini-2.5-flash',
+      provider: 'gemini',
+      is_active: false,
+    },
+    {
+      model_name: 'DeepSeek V4 Pro',
+      model_id: 'accounts/fireworks/models/deepseek-v4-pro',
+      provider: 'fireworks',
+      is_active: false,
+    },
+    {
+      model_name: 'Kimi K2.6',
+      model_id: 'accounts/fireworks/models/kimi-k2p6',
+      provider: 'fireworks',
       is_active: false,
     },
   ]
