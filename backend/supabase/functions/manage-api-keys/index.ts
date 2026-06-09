@@ -2,8 +2,7 @@ import { corsPreflight, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { storeApiKey, getApiKey, deleteApiKey, listApiKeys } from '../_shared/keys.ts';
 
 Deno.serve(async (req: Request) => {
-  const preflight = corsPreflight(req);
-  if (preflight) return preflight;
+  if (req.method === 'OPTIONS') return corsPreflight();
 
   try {
     const method = req.method;
