@@ -346,6 +346,9 @@ export function ModelsPage() {
                       {showKeys['__new__'] ? 'HIDE' : 'SHOW'}
                     </button>
                   </div>
+                  <p className="text-[10px] text-white/30 leading-relaxed">
+                    Your key is encrypted before storage and lives in your own Supabase DB — no one else can access it. This is an open-source project; you run your own instance.
+                  </p>
                 </div>
               </div>
 
@@ -640,6 +643,9 @@ export function ModelsPage() {
 
                     <div className="space-y-2 border-t border-white/10 pt-4 mt-4">
                       <Label className="text-[11px] text-white/50">API Key</Label>
+                      <p className="text-[10px] text-white/30 leading-relaxed">
+                        Your key is encrypted before storage and lives in your own Supabase DB — no one else can access it. This is an open-source project; you run your own instance.
+                      </p>
                       {apiKeys[m.provider] ? (
                         <div className="space-y-2">
                           <p className="font-mono text-[11px] text-white/40">
