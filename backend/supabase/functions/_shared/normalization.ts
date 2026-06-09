@@ -194,14 +194,20 @@ function extractBalancedJson(text: string): string | null {
 function extractMarkdown(text: string): ExtractionResult {
   const result: any = {}
 
-  const analysisMatch = text.match(/##\s*Analysis\s*\n([\s\S]*?)(?=\n##\s*\w|\n*$)/i)
-  if (analysisMatch) result.analysis = analysisMatch[1].trim()
+  const analysisMatches = [...text.matchAll(/##\s*Analysis\s*\n([\s\S]*?)(?=\n##\s*\w|\n*$)/gi)]
+  if (analysisMatches.length > 0) {
+    result.analysis = analysisMatches[analysisMatches.length - 1][1].trim()
+  }
 
-  const categoryMatch = text.match(/##\s*Category\s*\n\s*(\S[^\n]*)/i)
-  if (categoryMatch) result.category = categoryMatch[1].trim()
+  const categoryMatches = [...text.matchAll(/##\s*Category\s*\n\s*(\S[^\n]*)/gi)]
+  if (categoryMatches.length > 0) {
+    result.category = categoryMatches[categoryMatches.length - 1][1].trim()
+  }
 
-  const scoreMatch = text.match(/##\s*Score\s*\n\s*(\S[^\n]*)/i)
-  if (scoreMatch) result.score = scoreMatch[1].trim()
+  const scoreMatches = [...text.matchAll(/##\s*Score\s*\n\s*(\S[^\n]*)/gi)]
+  if (scoreMatches.length > 0) {
+    result.score = scoreMatches[scoreMatches.length - 1][1].trim()
+  }
 
   if (Object.keys(result).length === 0) {
     return { content: null, prose: text.trim(), error: 'No markdown sections found' }
