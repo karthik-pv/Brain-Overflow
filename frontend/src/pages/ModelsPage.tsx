@@ -56,6 +56,7 @@ const PROVIDER_DEFAULTS: Record<string, {
   openai: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false },
   anthropic: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false },
   gemini: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false },
+  google: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false },
   groq: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 15000, max_retries: 3, strip_reasoning: false },
 }
 
