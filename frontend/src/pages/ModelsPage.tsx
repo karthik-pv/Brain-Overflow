@@ -646,6 +646,11 @@ export function ModelsPage() {
                             <SelectItem value="markdown_sections">Markdown Sections</SelectItem>
                           </SelectContent>
                         </Select>
+                        {m.provider === 'gemini' && (
+                          <p className="text-[10px] text-white/30 mt-1">
+                            Tip: smaller open models work best with Markdown Sections format — JSON output can be unreliable.
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2">
