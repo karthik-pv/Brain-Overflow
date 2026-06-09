@@ -49,12 +49,19 @@ export function stripReasoning(
 
 export function extractResponse(text: string, format: string): ExtractionResult {
   if (format === 'xml_tags') {
-    return extractXml(text)
+    const result = extractXml(text)
+    if (result.content) return result
+    return extractMarkdown(text)
   }
   if (format === 'markdown_sections') {
     return extractMarkdown(text)
   }
-  return extractJson(text)
+  // json_schema — try JSON first, fall back to markdown
+  const jsonResult = extractJson(text)
+  if (jsonResult.content) return jsonResult
+  const mdResult = extractMarkdown(text)
+  if (mdResult.content) return mdResult
+  return jsonResult
 }
 
 function sanitizeJsonString(text: string): string {
