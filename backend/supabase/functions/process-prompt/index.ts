@@ -225,12 +225,9 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   }
 
   const provider = model.provider
-  let apiKey = await getApiKey(provider)
+  const apiKey = await getApiKey(provider)
   if (!apiKey) {
-    apiKey = Deno.env.get('AI_API_KEY')
-  }
-  if (!apiKey) {
-    throw new Error(`No API key configured for provider "${provider}" and no AI_API_KEY fallback`)
+    throw new Error(`No API key configured for provider "${provider}". Add one via the Models page.`)
   }
 
   // 7. Load model profile (PREPARE stage)
@@ -695,9 +692,9 @@ async function callProviderWithTimeout(
   messages: any[],
   profile: ModelProfile
 ): Promise<{ content: string; outputTokens: number }> {
-  let apiKey = await getApiKey(provider)
+  const apiKey = await getApiKey(provider)
   if (!apiKey) {
-    apiKey = Deno.env.get('AI_API_KEY') || ''
+    throw new Error(`No API key configured for provider "${provider}". Add one via the Models page.`)
   }
   const outputBudget = computeOutputBudget(profile)
 
