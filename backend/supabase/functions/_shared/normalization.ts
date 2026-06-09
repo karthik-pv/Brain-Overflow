@@ -57,13 +57,54 @@ export function extractResponse(text: string, format: string): ExtractionResult 
   return extractJson(text)
 }
 
+function sanitizeJsonString(text: string): string {
+  // Escape unescaped control characters inside JSON strings
+  let result = ''
+  let inString = false
+  let escape = false
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+
+    if (escape) {
+      escape = false
+      result += ch
+      continue
+    }
+
+    if (ch === '\\' && inString) {
+      escape = true
+      result += ch
+      continue
+    }
+
+    if (ch === '"') {
+      inString = !inString
+      result += ch
+      continue
+    }
+
+    if (inString) {
+      if (ch === '\n') { result += '\\n'; continue }
+      if (ch === '\r') { result += '\\r'; continue }
+      if (ch === '\t') { result += '\\t'; continue }
+      if (ch < ' ') { result += '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0'); continue }
+    }
+
+    result += ch
+  }
+
+  return result
+}
+
 function extractJson(text: string): ExtractionResult {
   // Try fenced JSON first
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fenced) {
     try {
+      const sanitized = sanitizeJsonString(fenced[1].trim())
       return {
-        content: JSON.parse(fenced[1].trim()),
+        content: JSON.parse(sanitized),
         prose: text.replace(fenced[0], '').trim() || null,
         error: null,
       }
@@ -96,34 +137,48 @@ function extractBalancedJson(text: string): string | null {
   let depth = 0
   let inString = false
   let escape = false
+  const parts: string[] = []
 
   for (let i = start; i < text.length; i++) {
     const ch = text[i]
 
     if (escape) {
       escape = false
+      parts.push(ch)
       continue
     }
 
     if (ch === '\\' && inString) {
       escape = true
+      parts.push(ch)
       continue
     }
 
     if (ch === '"') {
       inString = !inString
+      parts.push(ch)
       continue
     }
 
-    if (inString) continue
+    if (inString) {
+      // Escape control characters that break JSON parsing
+      if (ch === '\n') { parts.push('\\n'); continue }
+      if (ch === '\r') { parts.push('\\r'); continue }
+      if (ch === '\t') { parts.push('\\t'); continue }
+      if (ch < ' ') { parts.push('\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0')); continue }
+      parts.push(ch)
+      continue
+    }
 
     if (ch === '{') depth++
     if (ch === '}') {
       depth--
       if (depth === 0) {
-        return text.slice(start, i + 1)
+        parts.push(ch)
+        return parts.join('')
       }
     }
+    parts.push(ch)
   }
 
   return null
