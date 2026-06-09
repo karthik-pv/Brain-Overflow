@@ -99,9 +99,8 @@ export function SetupScreen({ initialError, onSubmitted }: Props) {
                     highlightHueDeg={320}
                   />
                 </button>
-                <p className="text-[10px] font-mono text-[color:var(--color-text-dim)]">
-                  Or set <span className="text-[color:var(--color-text-mute)]">VITE_SUPABASE_URL</span> and{' '}
-                  <span className="text-[color:var(--color-text-mute)]">VITE_SUPABASE_PUBLISHABLE_KEY</span> in .env.local
+                <p className="text-[10px] font-mono text-[color:var(--color-text-dim)] leading-relaxed">
+                  Nothing is stored on our servers — this connects you directly to your own Supabase DB. Your ideas stay with you, no one else has access.
                 </p>
               </div>
             </form>
