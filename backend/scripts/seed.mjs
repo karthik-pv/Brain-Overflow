@@ -57,14 +57,14 @@ async function seed() {
       is_active: false,
     },
     {
-      model_name: 'Claude Sonnet 4',
-      model_id: 'claude-sonnet-4-latest',
+      model_name: 'Claude Sonnet 4.5',
+      model_id: 'claude-sonnet-4-5-20250929',
       provider: 'anthropic',
       is_active: false,
     },
     {
-      model_name: 'Claude 3.5 Haiku',
-      model_id: 'claude-3-5-haiku-latest',
+      model_name: 'Claude Haiku 4.5',
+      model_id: 'claude-haiku-4-5-20251001',
       provider: 'anthropic',
       is_active: false,
     },
