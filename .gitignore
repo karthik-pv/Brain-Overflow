@@ -1,7 +1,8 @@
-# Whitelist: only track backend and frontend
+# Whitelist: only track backend, frontend, and project root files
 /*
 !/backend
 !/frontend
 !/.gitignore
-prompts/
-README.md
+!/README.md
+!/prompts
+!/prompts/*
