@@ -230,6 +230,25 @@ function extractMarkdown(text: string): ExtractionResult {
     }
   }
 
+  // Fallback: [SECTION] format used by Google-specific system prompt
+  // Format: [ANALYSIS]\ncontent\n[CATEGORY]\nvalue\n[SCORE]\nvalue
+  if (Object.keys(result).length === 0) {
+    const bracketAnalysis = [...text.matchAll(/\[ANALYSIS\]\s*\n([\s\S]*?)(?=\n\[(?:CATEGORY|SCORE)\]|\n*$)/gi)]
+    if (bracketAnalysis.length > 0) {
+      result.analysis = bracketAnalysis[bracketAnalysis.length - 1][1].trim()
+    }
+
+    const bracketCategory = [...text.matchAll(/\[CATEGORY\]\s*\n\s*(\S[^\n]*)/gi)]
+    if (bracketCategory.length > 0) {
+      result.category = bracketCategory[bracketCategory.length - 1][1].trim()
+    }
+
+    const bracketScore = [...text.matchAll(/\[SCORE\]\s*\n\s*(\S[^\n]*)/gi)]
+    if (bracketScore.length > 0) {
+      result.score = bracketScore[bracketScore.length - 1][1].trim()
+    }
+  }
+
   if (Object.keys(result).length === 0) {
     return { content: null, prose: text.trim(), error: 'No markdown sections found' }
   }

@@ -10,12 +10,15 @@ import { PromptInputBox } from '@/components/ui/ai-prompt-box'
 import { createCustomChatPrompt } from '@/lib/api/prompts'
 import { updateIdeaStatus } from '@/lib/api/ideas'
 import { triggerProcessPrompt } from '@/lib/api/edgeFn'
+import { InfinityLoader } from './InfinityLoader'
+import { useLoadingMessage } from './useLoadingMessage'
 
 interface Props {
   ideaId: string
   idea: Idea
   messages: ChatMessage[]
   onUpdate?: () => void
+  modelId?: string | null
 }
 
 const ROLE_META = {
@@ -87,14 +90,21 @@ function downloadFile(content: string, filename: string, mime: string) {
   URL.revokeObjectURL(url)
 }
 
-export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
-  const ref = useRef<HTMLDivElement>(null)
+export function IdeaChat({ ideaId, idea, messages, onUpdate, modelId }: Props) {
+  const bottomRef = useRef<HTMLDivElement>(null)
   const visible = messages.filter((m) => m.message_type !== 'prompt')
   const isProcessing = idea.status === 'processing'
   const [showReasoning, setShowReasoning] = useState<Record<string, boolean>>({})
+  const isFreeModel = !!(modelId && (modelId.toLowerCase().includes('gemma') || modelId.toLowerCase().includes('flash') || modelId.toLowerCase().includes('groq') || modelId.toLowerCase().includes('llama') || modelId.toLowerCase().includes('gpt-oss')))
+  const loadingMessage = useLoadingMessage(isFreeModel)
 
   useEffect(() => {
-    ref.current?.scrollIntoView({ behavior: 'smooth' })
+    const { scrollY, innerHeight } = window
+    const docHeight = document.documentElement.scrollHeight
+    const isNearBottom = docHeight - scrollY - innerHeight < 150
+    if (isNearBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
 
   async function handleSend(text: string) {
@@ -204,18 +214,25 @@ export function IdeaChat({ ideaId, idea, messages, onUpdate }: Props) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/30 px-4 py-3 flex items-center gap-3"
+            className="border border-[color:var(--color-edge-glow)] bg-[color:var(--color-surface)]/30 px-4 py-4 flex flex-col items-center gap-3"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-[color:var(--color-pivot)] opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[color:var(--color-pivot)]" />
-            </span>
-            <span className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
-              ANALYZING…
-            </span>
+            <InfinityLoader size={36} />
+            <div className="flex flex-col items-center gap-1">
+              <span className="font-pixel text-[11px] tracking-[0.2em] uppercase text-[color:var(--color-pivot)]">
+                ANALYZING…
+              </span>
+              <span className="font-mono text-[11px] text-[color:var(--color-text-mute)] text-center italic">
+                {loadingMessage}
+              </span>
+              {isFreeModel && (
+                <span className="font-mono text-[10px] text-[color:var(--color-text-mute)]/60 text-center mt-1">
+                  free model — may take longer due to rate limits & retries
+                </span>
+              )}
+            </div>
           </motion.div>
         )}
-        <div ref={ref} />
+        <div ref={bottomRef} />
       </div>
 
       {/* {!isProcessing && visible.length > 0 && (

@@ -222,6 +222,9 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
       log(ctx, 'Run already claimed or not queued — aborting', { run_id })
       return
     }
+
+    // Also set idea.status to 'processing' so the frontend loading UI activates
+    await supabase.from('ideas').update({ status: 'processing' }).eq('id', idea_id)
   }
 
   const provider = model.provider
@@ -267,7 +270,18 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
   const schema = await loadPromptSchema(prompt.id)
 
   // 9. Build system prompt (PREPARE stage)
-  const systemPrompt = buildSystemPrompt(effectiveProfile, prompt, schema)
+  // Google models (Gemini/Gemma) are unreliable with JSON output — force
+  // markdown_sections which they handle more consistently.
+  // Gemma models additionally get a simplified [SECTION] prompt because
+  // they tend to describe formats instead of following them.
+  const isGoogleProvider = provider === 'gemini' || provider === 'google'
+  if (isGoogleProvider && effectiveProfile.prompt_format === 'json_schema') {
+    effectiveProfile.prompt_format = 'markdown_sections'
+  }
+  const isGemmaModel = model.model_id.toLowerCase().includes('gemma')
+  const systemPrompt = isGemmaModel
+    ? buildGoogleSystemPrompt(effectiveProfile, prompt, schema)
+    : buildSystemPrompt(effectiveProfile, prompt, schema)
 
   // 10. Strip conflicting format instructions when system format is active
   const sanitizedInput = sanitizePromptForSystemFormat(finalInput, prompt.use_system_format)
@@ -669,6 +683,39 @@ CRITICAL FORMATTING RULES for the "analysis" field:
 
 Do NOT wrap the JSON in markdown code fences. Return raw JSON only.`
   }
+}
+
+// Google-specific system prompt — radically shorter because Gemma/Gemini
+// models tend to describe formats instead of following them when
+// instructions are long. The [SECTION] format is unambiguous and leaves
+// almost nothing to "describe."
+function buildGoogleSystemPrompt(profile: ModelProfile, prompt: any, schema: any): string {
+  if (!prompt.use_system_format) {
+    const custom = typeof prompt.custom_schema === 'string'
+      ? prompt.custom_schema
+      : (prompt.custom_schema ? JSON.stringify(prompt.custom_schema) : '')
+    if (!custom.trim()) {
+      throw new Error(
+        'Prompt has use_system_format=false but custom_schema is empty. ' +
+        'Either enable system format or provide custom output format instructions.'
+      )
+    }
+    return custom
+  }
+
+  const categories = schema.allowed_categories?.join(', ') || 'startup_idea, automation, personal_tool, dev_tool, other'
+  const scores = schema.allowed_scores?.join(', ') || 'strong, weak, needs_pivot, needs_refinement'
+
+  return `Output ONLY the three sections below. No preamble, no commentary, no description of the format.
+
+[ANALYSIS]
+Write your analysis here. Use markdown: ## headers, | tables |, - bullets, **bold**, > blockquotes.
+
+[CATEGORY]
+Exactly one of: ${categories}
+
+[SCORE]
+Exactly one of: ${scores}`
 }
 
 // Routes to the correct provider based on model.provider string

@@ -37,11 +37,11 @@ export function useIdea(id: string | undefined) {
   }, [fetchAll])
 
   useEffect(() => {
-    if (!idea || idea.status !== 'processing') return
+    if (!idea || (idea.status !== 'processing' && idea.status !== 'recorded')) return
     const tid = window.setInterval(async () => {
       if (document.hidden) return
       const updatedIdea = await fetchAll()
-      if (updatedIdea && updatedIdea.status !== 'processing') {
+      if (updatedIdea && updatedIdea.status !== 'processing' && updatedIdea.status !== 'recorded') {
         window.clearInterval(tid)
       }
     }, 3000)

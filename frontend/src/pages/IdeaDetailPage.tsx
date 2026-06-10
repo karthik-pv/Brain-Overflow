@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Zap } from 'lucide-react'
+import { ArrowLeft, Zap, StopCircle } from 'lucide-react'
 import { useIdea } from '@/hooks/useIdea'
 import { ScoreRing } from '@/components/idea/ScoreRing'
 import { IdeaTimeline } from '@/components/idea/IdeaTimeline'
 import { IdeaChat } from '@/components/idea/IdeaChat'
 import { RunsSidebar } from '@/components/RunsSidebar'
 import { QuoteFooter } from '@/components/shell/QuoteFooter'
-import { listRuns } from '@/lib/api/runs'
+import { listRuns, abortRun } from '@/lib/api/runs'
 import { listFlows } from '@/lib/api/flows'
+import { listModels } from '@/lib/api/models'
 import { getSupabase } from '@/lib/supabase'
-import type { Idea, IdeaRun, Flow } from '@/types'
+import type { Idea, IdeaRun, Flow, Model } from '@/types'
 
 const STATUS_META: Record<Idea['status'], { label: string; tone: string }> = {
   recorded: { label: 'RECORDED', tone: 'var(--color-text-mute)' },
@@ -38,6 +39,7 @@ export function IdeaDetailPage() {
   const [runs, setRuns] = useState<IdeaRun[]>([])
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [flows, setFlows] = useState<Flow[]>([])
+  const [models, setModels] = useState<Model[]>([])
 
   useEffect(() => {
     if (!idea?.id) return
@@ -45,9 +47,11 @@ export function IdeaDetailPage() {
     Promise.all([
       listRuns(idea.id),
       listFlows(),
-    ]).then(([fetchedRuns, fetchedFlows]) => {
+      listModels(),
+    ]).then(([fetchedRuns, fetchedFlows, fetchedModels]) => {
       setRuns(fetchedRuns)
       setFlows(fetchedFlows)
+      setModels(fetchedModels)
 
       const fromUrl = fetchedRuns.find(r => r.id === runIdParam)
       if (fromUrl) {
@@ -198,6 +202,19 @@ export function IdeaDetailPage() {
                     {status.label}
                   </span>
                 </div>
+                {idea.status === 'processing' && selectedRunId && (
+                  <button
+                    onClick={async () => {
+                      await abortRun(idea.id, selectedRunId)
+                      refetch()
+                    }}
+                    className="flex items-center gap-1.5 font-pixel text-[10px] tracking-[0.15em] uppercase text-[color:var(--color-weak)] hover:text-red-400 border border-[color:var(--color-weak)]/30 hover:border-red-400/50 px-2.5 py-1 transition-colors"
+                    title="Stop the current flow"
+                  >
+                    <StopCircle className="h-3 w-3" />
+                    KILL_SWITCH
+                  </button>
+                )}
                 {idea.category && (
                   <span className="font-pixel text-[10px] tracking-[0.2em] uppercase text-[color:var(--color-text-mute)]">
                     {CATEGORY_LABELS[idea.category]}
@@ -308,6 +325,12 @@ export function IdeaDetailPage() {
               idea={idea}
               messages={displayedMessages}
               onUpdate={refetch}
+              modelId={(() => {
+                const selectedRun = runs.find(r => r.id === selectedRunId)
+                if (!selectedRun?.model_id) return null
+                const model = models.find(m => m.id === selectedRun.model_id)
+                return model?.model_id ?? null
+              })()}
             />
           </div>
         </div>

@@ -3,3 +3,5 @@
 !/backend
 !/frontend
 !/.gitignore
+prompts/
+README.md

@@ -45,3 +45,12 @@ export async function getRun(runId: string): Promise<IdeaRun | null> {
   }
   return data as IdeaRun
 }
+
+export async function abortRun(ideaId: string, runId: string): Promise<void> {
+  const sb = getSupabase()
+  await sb.from('ideas').update({ status: 'failed' }).eq('id', ideaId)
+  await sb.from('idea_runs').update({
+    status: 'failed',
+    error_message: 'Aborted by user',
+  }).eq('id', runId)
+}

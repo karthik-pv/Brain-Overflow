@@ -58,7 +58,7 @@ const PROVIDER_DEFAULTS: Record<string, {
   anthropic: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 2, strip_reasoning: false, prompt_format: 'json_schema' },
   gemini: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false, prompt_format: 'markdown_sections' },
   google: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 300000, max_retries: 3, strip_reasoning: false, prompt_format: 'markdown_sections' },
-  groq: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 15000, max_retries: 3, strip_reasoning: false, prompt_format: 'json_schema' },
+  groq: { max_tokens: 8192, reasoning_budget: 0, temperature: 0.3, timeout_ms: 60000, max_retries: 3, strip_reasoning: false, prompt_format: 'json_schema' },
 }
 
 function getProviderDefaults(provider: string, modelId: string) {
@@ -323,8 +323,14 @@ export function ModelsPage() {
                           <SelectItem value="anthropic">Anthropic</SelectItem>
                           <SelectItem value="gemini">Google (Gemini / Gemma)</SelectItem>
                           <SelectItem value="fireworks">Fireworks AI</SelectItem>
+                          <SelectItem value="groq">Groq</SelectItem>
                         </SelectContent>
                       </Select>
+                      {form.provider === 'gemini' && (
+                        <p className="font-mono text-[10px] text-[color:var(--color-weak)]/80 mt-1.5 leading-relaxed">
+                          Google models are highly rate-limited and unreliable with free API key. We recommend using Groq (free, fast) or another provider instead. devs are coming up with workaround for graceful Google model usage.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label>MODEL_ID</Label>
@@ -504,8 +510,14 @@ export function ModelsPage() {
                             <SelectItem value="anthropic">Anthropic</SelectItem>
                             <SelectItem value="gemini">Google (Gemini / Gemma)</SelectItem>
                             <SelectItem value="fireworks">Fireworks AI</SelectItem>
+                            <SelectItem value="groq">Groq</SelectItem>
                           </SelectContent>
                         </Select>
+                        {form.provider === 'gemini' && (
+                          <p className="font-mono text-[10px] text-[color:var(--color-weak)]/80 mt-1.5 leading-relaxed">
+                            Google models are highly rate-limited and unreliable with free API key. We recommend using Groq (free, fast) or another provider instead. devs are coming up with workaround for graceful Google model usage.
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label>MODEL_ID</Label>
