@@ -194,6 +194,7 @@ function extractBalancedJson(text: string): string | null {
 function extractMarkdown(text: string): ExtractionResult {
   const result: any = {}
 
+  // Try standard ## Section format (last occurrence to handle preambles)
   const analysisMatches = [...text.matchAll(/##\s*Analysis\s*\n([\s\S]*?)(?=\n##\s*\w|\n*$)/gi)]
   if (analysisMatches.length > 0) {
     result.analysis = analysisMatches[analysisMatches.length - 1][1].trim()
@@ -207,6 +208,26 @@ function extractMarkdown(text: string): ExtractionResult {
   const scoreMatches = [...text.matchAll(/##\s*Score\s*\n\s*(\S[^\n]*)/gi)]
   if (scoreMatches.length > 0) {
     result.score = scoreMatches[scoreMatches.length - 1][1].trim()
+  }
+
+  // Fallback: Gemma-style bullet format (* *Field:* value)
+  // Gemma often ignores ## headers and uses its own bullet-point structure.
+  // Format is *Field:* (colon before asterisk), values may be backtick-wrapped.
+  if (Object.keys(result).length === 0) {
+    const gemmaAnalysis = [...text.matchAll(/\*\s+\*\s*Analysis(?!\s+Section)\s*:?\*?\s*\n([\s\S]*?)(?=\n\s*\*\s+\*\s*(?:Category|Score)(?!\s+Section)\s*:?\*?|\n*$)/gi)]
+    if (gemmaAnalysis.length > 0) {
+      result.analysis = gemmaAnalysis[gemmaAnalysis.length - 1][1].trim()
+    }
+
+    const gemmaCategory = [...text.matchAll(/^\s*\*\s+\*\s*Category(?!\s*Section)\s*:?\*?\s*`?\s*([^\n`]+)\s*`?/gim)]
+    if (gemmaCategory.length > 0) {
+      result.category = gemmaCategory[gemmaCategory.length - 1][1].trim()
+    }
+
+    const gemmaScore = [...text.matchAll(/^\s*\*\s+\*\s*Score(?!\s*Section)\s*:?\*?\s*`?\s*([^\n`]+)\s*`?/gim)]
+    if (gemmaScore.length > 0) {
+      result.score = gemmaScore[gemmaScore.length - 1][1].trim()
+    }
   }
 
   if (Object.keys(result).length === 0) {
