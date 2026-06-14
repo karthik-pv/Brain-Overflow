@@ -2,9 +2,9 @@
 
 > an abandoned operating system for thinkers and dreamers.
 
-Speak an idea — the machine remembers. Then it roasts it, analyzes it, and tells you what to do next.
+Brain Overflow is a personal idea processing system. Speak an idea (or type it, or send it via Telegram) — the machine remembers. Then it runs your idea through a customizable chain of AI prompts that can challenge assumptions, evaluate feasibility, explore market potential, identify weaknesses, and help transform a vague thought into something you can actually build on.
 
-Brain Overflow is a personal idea processing system. You talk to it (voice, text, Telegram), it runs your idea through a chain of AI prompts, and gives you back structured analysis — categorization, scoring, market research, actionable next steps. Everything lands in **your** Supabase database. Not ours. Yours.
+Everything lands in **your** Supabase database. Not ours. Yours.
 
 ---
 
@@ -14,21 +14,57 @@ Brain Overflow is a personal idea processing system. You talk to it (voice, text
 - **Telegram bot** — send ideas from your phone, even offline (they queue up)
 - **AI prompt chains** (called "flows") — configurable multi-step analysis pipelines
 - **Dashboard** — browse, filter, search all your ideas with full chat history
-- **Markdown chat** — syntax-highlighted code, tables, task lists, copy/export
+- **Export** any conversation as Markdown or PDF
+- **Bring your own AI provider** — OpenAI, Anthropic, Fireworks AI, or Groq (Bring Your Own Key mechanism)
 - **Your database** — Supabase hosts the data, you own every row
 
 ---
 
-## Architecture in 30 seconds
+## Screenshots
+
+- Supabase DB Setup Screen
+
+![setupscreen](public/setup-screen.png)
+<br>
+
+- Main Recorder Screen
+
+![recorder](public/recorder.png)
+<br>
+
+- Ideas Dashboard 
+
+![idea dashboard](public/idea-dashboard.png)
+<br>
+
+- Prompt Flow
+
+![prompt-flow](public/prompt-flow.png)
+<br>
+
+- Custom Prompts
+
+![custom-prompts](public/custom-prompts.png)
+<br>
+
+- Models Page
+
+![models-page](public/models-page.png)
+<br>
+
+- Navigation Menu
+
+![nav-menu](public/nav-menu.png)
+## Architecture
 
 ```
 You (voice/Telegram/web)
-  → Supabase (ideas, chat_messages, flows, prompts, models)
-    → Edge Function: telegram-webhook  (receives Telegram messages)
-    → Edge Function: process-prompt    (runs AI chain per idea)
-    → Edge Function: start-run         (triggers idea processing)
-    → Edge Function: manage-api-keys   (securely stores AI provider keys)
-      → LLM (Fireworks / OpenAI / Anthropic)
+  → Supabase (Postgres DB + Edge Functions)
+    → telegram-webhook  — receives Telegram messages
+    → process-prompt    — runs the AI prompt chain per idea
+    → start-run         — triggers idea processing
+    → manage-api-keys   — securely stores AI provider keys
+      → LLM (Fireworks / OpenAI / Anthropic / Groq)
     ← Results stored in Supabase
   ← React dashboard reads from Supabase
 ```
@@ -41,13 +77,11 @@ No backend server. No Docker. No Kubernetes. Supabase handles the database and e
 
 | Thing | Why | Get it |
 |-------|-----|--------|
-| Node.js 20+ | Frontend + scripts | [nodejs.org](https://nodejs.org) |
+| Node.js 20+ | Frontend + setup scripts | [nodejs.org](https://nodejs.org) |
 | Supabase CLI | Deploy functions & migrations | `npm install -g supabase` |
-| Supabase account | Your database | [supabase.com](https://supabase.com) — free tier works |
-| Telegram Bot Token | The bot | [@BotFather](https://t.me/BotFather) on Telegram |
-| AI API Key | LLM calls | [Fireworks AI](https://fireworks.ai) (recommended) or OpenAI/Anthropic |
-
-> **New to Supabase?** The free tier is generous and perfect for this project. You only need one project.
+| Supabase account | Your database | [supabase.com](https://supabase.com) — free tier |
+| AI API key | LLM inference | [Fireworks AI](https://fireworks.ai), [OpenAI](https://platform.openai.com), [Anthropic](https://console.anthropic.com), or [Groq](https://groq.com) |
+| Telegram bot token | (Optional) For the Telegram integration | [@BotFather](https://t.me/BotFather) |
 
 ---
 
@@ -56,41 +90,37 @@ No backend server. No Docker. No Kubernetes. Supabase handles the database and e
 ### 1. Clone and install
 
 ```bash
-git clone <your-repo-url> brain-overflow
-cd brain-overflow
+git clone https://github.com/karthik-pv/Brain-Overflow.git
+cd Brain-Overflow
 cd frontend && npm install && cd ..
 cd backend  && npm install && cd ..
 ```
 
 ### 2. Create a Supabase project
 
-1. Go to [supabase.com](https://supabase.com) and sign up (free tier is fine)
-2. Click **New Project** — give it a name, set a database password, pick a region close to you
-3. Wait for the project to provision (usually ~30 seconds)
+1. Go to [supabase.com](https://supabase.com) and click **New Project** (free tier is fine)
+2. Give it a name, set a database password, pick a region close to you
+3. Wait ~30 seconds for provisioning
 
-Once it's ready, gather these from the project dashboard:
+Once ready, grab these from the project dashboard (Settings → API):
 
-| What you need | Where to find it | Looks like |
-|--------------|-----------------|-----------|
-| **Project Ref** | Settings → API → Project Ref | `abcdefghijkl` |
-| **Project URL** | Settings → API → Project URL | `https://abcdefghijkl.supabase.co` |
+| What you need | Where to find it | Example |
+|--------------|-----------------|---------|
+| **Project Ref** | project overview dashboard | `abcdefghijkl` |
+| **Project URL** | project overview dashboard | `https://abcdefghijkl.supabase.co` |
 | **Publishable key** | Settings → API → `sb_publishable_...` | `sb_publishable_abc123...` |
 | **Secret key** | Settings → API → `service_role` / `sb_secret_...` | `sb_secret_xyz789...` |
 
-Also create a **Personal Access Token** for the CLI:
-1. Go to [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens)
-2. Click **Generate Token**, name it "brain-overflow-cli", copy the token (`sbp_...`)
+Also create a **Personal Access Token** from [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens) — the CLI needs this to authenticate.
 
-> **Save these values somewhere — you'll need them in the next step.**
-
-### 3. Configure environment variables
+### 3. Configure backend
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-Open `backend/.env` — here's what goes where:
+Open `backend/.env` and fill in the values:
 
 ```bash
 # ── Required ─────────────────────────────────────────────────────
@@ -104,82 +134,73 @@ ENCRYPTION_KEY=your-super-secret-encryption-key-at-least-32-chars
 SUPABASE_ACCESS_TOKEN=sbp_your_personal_access_token
 
 # ── Optional (Telegram bot) ──────────────────────────────────────
-# Skip these if you only use the web dashboard. Add later anytime.
+# You can skip these if you only use the web dashboard.
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 TELEGRAM_ALLOWED_USERS=["123456789"]
 ```
 
-**Finding your Telegram user ID:** Send `/start` to [@userinfobot](https://t.me/userinfobot) on Telegram. It replies with your numeric ID. Put it in the array. If you want multiple people to use the bot: `["123456789", "987654321"]`.
-
 **Getting a Telegram bot token:**
 1. Message [@BotFather](https://t.me/BotFather) on Telegram
-2. Send `/newbot`
-3. Pick a name (e.g. "My Brain Overflow")
-4. Pick a username ending in `bot` (e.g. `my_brain_overflow_bot`)
-5. BotFather gives you the token — paste it in `.env`
+2. Send `/newbot`, pick a name (e.g. "My Brain Overflow") and a username ending in `bot`
+3. BotFather gives you the token — paste it in `.env`
+
+**Finding your Telegram user ID:** Send `/start` to [@userinfobot](https://t.me/userinfobot). It replies with your numeric ID. Put it in `TELEGRAM_ALLOWED_USERS`. For multiple users: `["123456789", "987654321"]`.
 
 **Getting an AI API key:**
-- **Fireworks AI** (recommended, cheap, fast): Sign up at [fireworks.ai](https://fireworks.ai), go to API Keys, create one. The default model (`llama-v3p1-70b-instruct`) runs on Fireworks.
-- **OpenAI**: Sign up at [platform.openai.com](https://platform.openai.com), create an API key. Then add a model in the dashboard with provider `openai` and model_id like `gpt-4o`.
-- **Anthropic**: Sign up at [console.anthropic.com](https://console.anthropic.com), create an API key. Add a model with provider `anthropic` and model_id like `claude-3-5-sonnet-20241022`.
+- **Fireworks AI** (recommended — fast, cheap): Sign up at [fireworks.ai](https://fireworks.ai), go to API Keys, create one. The default seed model (`llama-v3p1-70b-instruct`) runs on Fireworks.
+- **OpenAI**: [platform.openai.com](https://platform.openai.com)
+- **Anthropic**: [console.anthropic.com](https://console.anthropic.com)
+- **Groq**: [groq.com](https://groq.com)
 
-### 4. Configure the frontend
+You'll enter the key in the dashboard later (it gets encrypted and stored in your database via pgcrypto).
+
+### 4. Configure the frontend (optional)
+
+The app can prompt you for credentials on first load, so this step is **not required**. If you want to skip that initial setup screen:
 
 ```bash
 cd frontend
 cp .env.local.example .env.local
 ```
 
-Open `frontend/.env.local`:
+Open `frontend/.env.local` and add your Supabase URL and publishable key:
 
 ```bash
-VITE_SUPABASE_URL=https://abcdefgh.supabase.co
+VITE_SUPABASE_URL=https://abcdefghijkl.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_actual_key_here
 ```
 
-These are the same values from your Supabase dashboard. The publishable key is safe to expose — it's designed for client-side use.
-
 ### 5. Run the setup script
 
-This is the magic button. From the `backend/` directory:
+This single command handles everything. From `backend/`:
 
 ```bash
 npm run setup
 ```
 
-This one command does **all** of the following:
+It will:
 
-1. Installs backend dependencies
-2. Links your local project to your Supabase project
-3. Runs all database migrations (creates all tables: `ideas`, `chat_messages`, `flows`, `prompts`, `models`, `idea_runs`, `api_keys`, `telegram_chat_config`, and more)
-4. Deploys all four edge functions to Supabase:
-   - `telegram-webhook` — receives Telegram messages
-   - `process-prompt` — runs the AI prompt chain for each idea
-   - `start-run` — triggers idea processing
-   - `manage-api-keys` — securely stores your AI provider keys
-5. Sets the required secrets in Supabase (`ENCRYPTION_KEY`; also `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` if configured)
-6. Configures the Telegram webhook (skipped if no Telegram config)
-7. Seeds a default AI model (Llama 3.1 70B on Fireworks)
-8. Verifies everything works
+1. Install backend dependencies
+2. Link your local project to your Supabase project
+3. Push database migrations (creates all tables)
+4. Deploy all four edge functions
+5. Set necessary secrets in Supabase
+6. Configure the Telegram webhook (skipped if Telegram isn't configured)
+7. Seed a default AI model
+8. Verify everything works
 
-If it fails at any step, it tells you why. Fix the issue and re-run — it's idempotent (safe to run again).
+The script is idempotent — safe to re-run if something fails.
 
-> **No Telegram? No problem.** The setup script only requires the Supabase + encryption vars. Leave `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` blank and everything else works fine — you use the web dashboard instead.
+> **No Telegram? No problem.** The script only requires the Supabase and encryption variables. Leave the Telegram fields blank and everything else works — you use the web dashboard instead.
 
-### 6. Seed sample data (optional but recommended)
+### 6. Seed sample data (optional)
 
 ```bash
 cd backend
 npm run seed
 ```
 
-This populates your database with:
-- 3 AI models (Llama 3.1 70B, Llama 3.1 8B, Mixtral 8x7B — all Fireworks)
-- 3 sample prompts (categorize & roast, market analysis, actionable next steps)
-- 3 flows that chain those prompts together:
-  - `/startup` — full 3-step analysis
-  - `/roast` — quick brutal feedback
-  - `/default` — categorize + next steps
+This populates your database with 8 AI models (GPT-4o, Claude Sonnet/Haiku, DeepSeek V4 Pro, Kimi K2.6, Llama 3.3 70B, GPT-OSS 120B), 4 prompts, and 1 flow ("Awaken") that chains all prompts together.
 
 ### 7. Start the frontend
 
@@ -188,37 +209,32 @@ cd frontend
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). You should see the Brain Overflow landing page with the voice recorder and the Telegram bot alert in the top-right corner.
+Open [http://localhost:5173](http://localhost:5173). If you skipped the `.env.local` step, you'll see a setup screen asking for your Supabase URL and publishable key. Enter them and you're in.
 
 ### 8. Sync Telegram commands (optional)
-
-This registers the bot's command menu in Telegram so users get autocomplete:
 
 ```bash
 cd backend
 npm run sync-telegram-commands
 ```
 
-After this, typing `/` in your Telegram chat with the bot will show the available commands.
+This registers the bot's slash-command menu in Telegram so users get autocomplete when typing `/`.
 
 ---
 
-## Using the Telegram bot
+## Telegram bot usage
 
-Open your bot on Telegram (the username you picked with BotFather). Here's what you can do:
+Open your bot on Telegram. Available commands:
 
 | Command | What it does |
 |---------|-------------|
 | `/flows` | List all available flows |
 | `/currentflow` | Show your active flow |
 | `/setflow <command>` | Set a persistent default flow for this chat |
-| `/startup my idea text` | Run the "Startup Analysis" flow on your idea |
-| `/roast my idea text` | Quick roast — just the brutal feedback |
+| `/awaken my idea` | Run the full 4-prompt chain |
 | Just type anything | Logs the idea using your default flow |
 
-**Using keyboard TTS (text-to-speech):** On most phone keyboards, there's a microphone icon. Tap it, speak your idea, and the keyboard converts it to text. Hit send. The bot treats it like any other message. This is the fastest way to capture ideas on the go.
-
-**Setting a default flow:** If you always want the startup analysis, run `/setflow startup`. Then every plain message you send automatically goes through that flow. You can still override with an explicit `/roast some idea` anytime.
+**Setting a default flow:** Run `/setflow awaken`. After that, every plain message you send goes through that flow automatically. You can still override with explicit commands anytime.
 
 ---
 
@@ -228,34 +244,72 @@ A **flow** is a sequence of prompts. When an idea enters a flow, each prompt run
 
 ```
 Idea: "an app that reminds you to water your plants"
-  → Prompt 1: "Categorize & Roast" → response stored
-  → Prompt 2: "Market Analysis" (sees previous response) → response stored
-  → Prompt 3: "Actionable Next Steps" (sees full history) → response stored
+  → Prompt 1: "Refiner" (cleans up the raw idea)
+  → Prompt 2: "Paul Graham Evaluation" (brutal honesty)
+  → Prompt 3: "Compressor" (distills everything)
+  → Prompt 4: "Weekend Architect" (what to build in 48h)
   → Idea marked COMPLETED
 ```
 
 Each prompt has a **context mode** that controls what the AI sees:
 
-| Mode | What the AI gets |
-|------|-----------------|
+| Mode | What the AI receives |
+|------|---------------------|
 | `idea_only` | Just the original idea text |
 | `previous_response` | The idea + the last AI response |
 | `full_history_json` | The idea + all prior prompt/response pairs as JSON |
 
-You can create your own prompts and flows from the dashboard (PROMPTS and FLOWS pages). Drag and drop to reorder prompts in a flow.
+You can create your own prompts and flows from the dashboard. Drag and drop to reorder prompts in a flow.
 
 ---
 
 ## Dashboard pages
 
-| Page | What's there |
+| Page | Description |
 |------|-------------|
-| **Landing** | Voice recorder + recent ideas + Telegram bot alert |
+| **Landing** | Voice recorder + recent ideas |
 | **Ideas** | Filterable card grid with status, score, category, search |
-| **Idea Detail** | Full chat history with markdown rendering, copy/export buttons |
-| **Models** | Add/switch AI models (Fireworks, OpenAI, Anthropic) |
+| **Idea Detail** | Full chat history with markdown rendering, copy/export |
+| **Models** | Add/switch AI models, enter API keys (encrypted at rest) |
 | **Prompts** | Create and edit AI prompts with context mode selection |
 | **Flows** | Chain prompts together, set Telegram commands, drag to reorder |
+
+---
+
+## Useful scripts
+
+All run from the `backend/` directory:
+
+```bash
+npm run setup                  # Full first-time setup (idempotent)
+npm run seed                   # Add sample models, prompts, flows
+npm run reset                  # Clear ideas + chat_messages (keeps config)
+npm run sync-telegram-commands # Register /commands in Telegram menu
+```
+
+---
+
+## Troubleshooting
+
+**Ideas stay in "processing" forever** — The edge function hit an error. Check Supabase Dashboard → Edge Functions → Logs. Common causes: invalid AI API key, model not found, or the AI returned unexpected output (the system retries 3 times then marks it failed).
+
+**"No model configured" error** — You need at least one active model in the `models` table. Run `npm run seed` or add one from the Models page.
+
+**"Save" button on Models page does nothing** — The `manage-api-keys` edge function wasn't deployed, or `ENCRYPTION_KEY` is missing in your backend `.env`. Re-run `npm run setup`.
+
+**Edge function deployment fails** — Make sure the Supabase CLI is installed (`npm install -g supabase`) and you're logged in (`npx supabase login`). If you see `toomanyrequests: Rate exceeded`, Docker is rate-limiting — run `docker login` or wait a minute and retry.
+
+**Telegram webhook not working** — Re-run `npm run setup`. You can also check the webhook status: `https://api.telegram.org/bot<TOKEN>/getWebhookInfo`
+
+---
+
+## Tech stack
+
+- **Frontend:** React 19, TypeScript, Tailwind CSS v4, Vite 7, Framer Motion, GSAP, Radix UI, react-markdown, rehype-highlight
+- **Backend:** Supabase (Postgres + Edge Functions), Deno
+- **AI:** Fireworks AI, OpenAI, Anthropic, Groq
+- **Integration:** Telegram Bot API
+- **Encryption:** pgcrypto (PGP symmetric encryption for API keys at rest)
 
 ---
 
@@ -267,87 +321,25 @@ brain-overflow/
 │   ├── src/
 │   │   ├── pages/            # Route pages
 │   │   ├── components/       # UI + feature components
-│   │   ├── lib/api/          # Supabase client + API helpers
-│   │   ├── hooks/            # React hooks (useIdea, useIdeas)
+│   │   ├── lib/              # Supabase client, API helpers
+│   │   ├── hooks/            # React hooks
 │   │   └── types/            # TypeScript types
-│   └── .env.local            # Supabase URL + publishable key
+│   └── .env.local            # Optional — frontend credentials
 │
 ├── backend/                   # Supabase infra + scripts
 │   ├── supabase/
-│   │   ├── migrations/       # SQL schema (run via db push)
+│   │   ├── migrations/       # SQL schema
 │   │   └── functions/        # Deno edge functions
-│   │       ├── telegram-webhook/   # Receives Telegram messages
-│   │       ├── process-prompt/     # Runs AI chain per idea
-│   │       ├── start-run/          # Triggers idea processing
-│   │       ├── manage-api-keys/    # Securely stores AI provider keys
-│   │       └── _shared/           # DB client, CORS, LLM providers
+│   │       ├── telegram-webhook/
+│   │       ├── process-prompt/
+│   │       ├── start-run/
+│   │       ├── manage-api-keys/
+│   │       └── _shared/      # DB client, CORS, LLM providers
 │   ├── scripts/              # setup, seed, reset, sync-telegram-commands
 │   └── .env                  # All secrets (never commit this)
+│
+└── prompts/                  # Source text for default prompts
 ```
-
----
-
-## Useful scripts
-
-All run from the `backend/` directory:
-
-```bash
-npm run setup                  # Full first-time setup (safe to re-run)
-npm run seed                   # Add sample models, prompts, flows
-npm run reset                  # Clear ideas + chat_messages (keeps config)
-npm run sync-telegram-commands # Register /commands in Telegram menu
-```
-
----
-
-## Database schema
-
-The migrations create these tables:
-
-- **`ideas`** — The idea text, status (`recorded` → `processing` → `completed`/`failed`), category, score, flow reference
-- **`chat_messages`** — Immutable conversation log per idea (idea text, prompt, AI response)
-- **`flows`** — Named prompt chains with optional `telegram_command`
-- **`prompts`** — AI prompt text with `context_mode` (`idea_only`, `previous_response`, `full_history_json`)
-- **`models`** — LLM configs (model_id, provider), one marked `is_active`
-- **`telegram_chat_config`** — Per-chat persistent flow selection
-
-RLS is disabled — this is a single-user trust-based system. If you need multi-user auth, you'll want to add Supabase Auth and enable RLS. That's a you-sized project.
-
----
-
-## Troubleshooting
-
-**"Unauthorized" when messaging the Telegram bot**
-Your Telegram user ID isn't in `TELEGRAM_ALLOWED_USERS`. Message [@userinfobot](https://t.me/userinfobot) to find your ID, add it to `.env`, then re-run `npm run setup` (it re-deploys the secrets).
-
-**Ideas stay in "processing" forever**
-The edge function probably hit an error. Check the Supabase dashboard → Edge Functions → Logs. Common causes: invalid AI API key, model not found, or the AI returned non-JSON (the system retries 3 times then marks it `failed`).
-
-**"No model configured" error**
-You need at least one model in the `models` table. Run `npm run seed` or add one manually from the dashboard's Models page.
-
-**Frontend shows nothing / blank page**
-Check `frontend/.env.local` — both `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` must be set. Restart the dev server after changing env vars.
-
-**Telegram webhook not working**
-Re-run `npm run setup` — it re-configures the webhook. You can also check the webhook info: `https://api.telegram.org/bot<TOKEN>/getWebhookInfo`
-
-**Edge function deployment fails**
-Make sure you have the Supabase CLI installed (`npm install -g supabase`) and you're logged in (`supabase login`). The CLI needs to link to your project — `setup.mjs` handles this, but if it fails, try `npx supabase link --project-ref <your-ref>` manually.
-
-If you see `toomanyrequests: Rate exceeded`, Docker is rate-limiting image pulls. Run `docker login` to authenticate (gives higher limits) or wait a minute and retry — the limits reset per-IP every 6 hours.
-
-**"Save" button on Models page does nothing / API key not saved**
-The `manage-api-keys` edge function was not deployed. Re-run `npm run setup` — it's now included in the deployment step. Make sure `ENCRYPTION_KEY` is set in your `backend/.env`.
-
----
-
-## Tech stack
-
-- **Frontend:** React 19, TypeScript, Tailwind CSS v4, Vite, Framer Motion, react-markdown, rehype-highlight
-- **Backend:** Supabase (Postgres + Edge Functions), Deno
-- **AI:** Fireworks AI (default), OpenAI, Anthropic — pick your poison
-- **Integration:** Telegram Bot API
 
 ---
 
