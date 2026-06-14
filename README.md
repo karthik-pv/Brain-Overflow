@@ -90,27 +90,22 @@ cd backend
 cp .env.example .env
 ```
 
-Open `backend/.env` and fill in every field:
+Open `backend/.env` — here's what goes where:
 
 ```bash
-# ── Supabase (from Settings → API) ──
+# ── Required ─────────────────────────────────────────────────────
 SUPABASE_PROJECT_REF=abcdefghijkl
 SUPABASE_URL=https://abcdefghijkl.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_your_actual_secret_key
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_actual_publishable_key
-
-# ── Supabase CLI auth (from supabase.com/dashboard/account/tokens) ──
-SUPABASE_ACCESS_TOKEN=sbp_your_personal_access_token
-
-# ── Encryption key (any 32+ char string — encrypts AI API keys in the DB) ──
 ENCRYPTION_KEY=your-super-secret-encryption-key-at-least-32-chars
 
-# ── Telegram (from @BotFather) ──
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+# ── Optional (CLI speed-up) ──────────────────────────────────────
+SUPABASE_ACCESS_TOKEN=sbp_your_personal_access_token
 
-# ── Allowed Telegram users (numeric IDs from @userinfobot) ──
-# If you don't want Telegram, set at least one ID anyway — the bot won't work
-# without it, but the rest of the system will.
+# ── Optional (Telegram bot) ──────────────────────────────────────
+# Skip these if you only use the web dashboard. Add later anytime.
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 TELEGRAM_ALLOWED_USERS=["123456789"]
 ```
 
@@ -162,12 +157,14 @@ This one command does **all** of the following:
    - `process-prompt` — runs the AI prompt chain for each idea
    - `start-run` — triggers idea processing
    - `manage-api-keys` — securely stores your AI provider keys
-5. Sets secrets in Supabase (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `ENCRYPTION_KEY`)
-6. Configures the Telegram webhook (so Telegram knows where to send messages)
+5. Sets the required secrets in Supabase (`ENCRYPTION_KEY`; also `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` if configured)
+6. Configures the Telegram webhook (skipped if no Telegram config)
 7. Seeds a default AI model (Llama 3.1 70B on Fireworks)
 8. Verifies everything works
 
 If it fails at any step, it tells you why. Fix the issue and re-run — it's idempotent (safe to run again).
+
+> **No Telegram? No problem.** The setup script only requires the Supabase + encryption vars. Leave `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` blank and everything else works fine — you use the web dashboard instead.
 
 ### 6. Seed sample data (optional but recommended)
 

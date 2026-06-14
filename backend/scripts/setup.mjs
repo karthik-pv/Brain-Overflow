@@ -22,14 +22,23 @@ function loadEnv() {
 loadEnv()
 
 // ── Validate required env vars ───────────────────────────────────────────────
-const REQUIRED = ['SUPABASE_PROJECT_REF','SUPABASE_URL','SUPABASE_SECRET_KEY','SUPABASE_PUBLISHABLE_KEY','TELEGRAM_BOT_TOKEN','ENCRYPTION_KEY','TELEGRAM_ALLOWED_USERS']
-const missing  = REQUIRED.filter(k => !process.env[k])
+// Core: needed for database and CLI to work
+const CORE_REQUIRED = ['SUPABASE_PROJECT_REF','SUPABASE_URL','SUPABASE_SECRET_KEY','SUPABASE_PUBLISHABLE_KEY','ENCRYPTION_KEY']
+const missing  = CORE_REQUIRED.filter(k => !process.env[k])
 if (missing.length) {
-  console.error(`ERROR: Missing env vars: ${missing.join(', ')}`)
+  console.error(`ERROR: Missing core env vars: ${missing.join(', ')}`)
+  console.error('  These are required for the database connection to work.')
   process.exit(1)
 }
 
-const { SUPABASE_PROJECT_REF, SUPABASE_URL, SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, ENCRYPTION_KEY, TELEGRAM_ALLOWED_USERS } = process.env
+// Telegram: optional — skip if not provided
+const HAS_TELEGRAM = !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ALLOWED_USERS)
+if (!HAS_TELEGRAM) {
+  console.log('ℹ  TELEGRAM_BOT_TOKEN or TELEGRAM_ALLOWED_USERS not set — skipping Telegram setup.')
+  console.log('   You can still use the web dashboard. Add them later to enable the bot.\n')
+}
+
+const { SUPABASE_PROJECT_REF, SUPABASE_URL, SUPABASE_SECRET_KEY, SUPABASE_PUBLISHABLE_KEY, ENCRYPTION_KEY } = process.env
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function run(cmd, label) {
@@ -70,7 +79,7 @@ if (!existsSync(resolve(ROOT, 'node_modules'))) {
 if (!process.env.SUPABASE_ACCESS_TOKEN) {
   console.warn('\n⚠  SUPABASE_ACCESS_TOKEN not set in .env.')
   console.warn('   Add it from https://supabase.com/dashboard/account/tokens')
-  console.warn('   Without it, steps 2-5 (supabase CLI calls) will fail.\n')
+  console.warn('   Without it, the supabase CLI needs to be logged in via `npx supabase login`.\n')
 }
 run(`npx supabase link --project-ref ${SUPABASE_PROJECT_REF}`, '2/9 Link Supabase')
 
@@ -84,24 +93,32 @@ run('npx supabase functions deploy start-run         --no-verify-jwt', '4/9 Depl
 run('npx supabase functions deploy manage-api-keys   --no-verify-jwt', '4/9 Deploy manage-api-keys')
 
 // 5. Set secrets in Supabase
-run(`npx supabase secrets set TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}`, '5/9 Set TELEGRAM_BOT_TOKEN secret')
-run(`npx supabase secrets set TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}`, '5/9 Set TELEGRAM_ALLOWED_USERS secret')
 run(`npx supabase secrets set ENCRYPTION_KEY=${ENCRYPTION_KEY}`, '5/9 Set ENCRYPTION_KEY secret')
-
-// 6. Configure Telegram webhook
-console.log('\n[6/9 Configure Telegram webhook]')
-const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-webhook`
-const tgUrl      = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`
-const { ok, data } = await fetchJson(tgUrl, {
-  method:  'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body:    JSON.stringify({ url: webhookUrl }),
-})
-if (!ok || !data?.ok) {
-  console.error('  Failed to set Telegram webhook:', data)
-  process.exit(1)
+if (HAS_TELEGRAM) {
+  run(`npx supabase secrets set TELEGRAM_BOT_TOKEN=${process.env.TELEGRAM_BOT_TOKEN}`, '5/9 Set TELEGRAM_BOT_TOKEN secret')
+  run(`npx supabase secrets set TELEGRAM_ALLOWED_USERS=${process.env.TELEGRAM_ALLOWED_USERS}`, '5/9 Set TELEGRAM_ALLOWED_USERS secret')
 }
-console.log(`  ✓ Webhook set to: ${webhookUrl}`)
+
+// 6. Configure Telegram webhook (optional)
+let webhookUrl = ''
+if (HAS_TELEGRAM) {
+  console.log('\n[6/9 Configure Telegram webhook]')
+  webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-webhook`
+  const tgUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook`
+  const { ok, data } = await fetchJson(tgUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ url: webhookUrl }),
+  })
+  if (!ok || !data?.ok) {
+    console.error('  Failed to set Telegram webhook:', data)
+    console.error('  Skipping — you can configure it manually later.')
+  } else {
+    console.log(`  ✓ Webhook set to: ${webhookUrl}`)
+  }
+} else {
+  console.log('\n[6/9 Telegram webhook] Skipped — no Telegram configured')
+}
 
 // 7. Seed default model
 console.log('\n[7/9 Seed default model]')
@@ -134,6 +151,6 @@ console.log(runsErr ? `  ✗ idea_runs table: ${runsErr.message}` : '  ✓ idea_
 
 console.log('\n============================================================')
 console.log('  Setup complete!')
-console.log(`  Telegram bot webhook: ${webhookUrl}`)
-console.log(`  React dashboard: cd ../frontend && npm install && npm run dev`)
+if (webhookUrl) console.log(`  Telegram bot webhook: ${webhookUrl}`)
+console.log(`  React dashboard: cd frontend && npm run dev`)
 console.log('============================================================\n')
