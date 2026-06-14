@@ -4,7 +4,7 @@
 !/frontend
 !/.gitignore
 !/README.md
-!/prompts/*
-!/public/*
+!/prompts/
+!/public/
 
 
