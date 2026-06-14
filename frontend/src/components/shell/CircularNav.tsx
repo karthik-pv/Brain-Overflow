@@ -5,6 +5,15 @@ import { Menu, Mic, Layers, MessageSquareText, Workflow, Cpu, LogOut } from 'luc
 import { CircularNavigation } from '@/components/ui/circular-navigation'
 import { useProcessingPulse } from '@/hooks/useProcessingPulse'
 import { clearCredentials, credentialsSource } from '@/lib/supabase'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog'
 
 const NAV_ITEMS = [
   { name: 'RECORDER', icon: Mic, to: '/' },
@@ -16,10 +25,12 @@ const NAV_ITEMS = [
 
 export function CircularNav() {
   const [isOpen, setIsOpen] = useState(false)
+  const [showEnvInfo, setShowEnvInfo] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { count } = useProcessingPulse()
-  const canDisconnect = credentialsSource() === 'localStorage'
+  const source = credentialsSource()
+  const isEnvLocked = source === 'env'
 
   const toggleMenu = useCallback(() => setIsOpen((prev) => !prev), [])
 
@@ -69,19 +80,42 @@ export function CircularNav() {
   })
 
   // Add disconnect as last item
-  if (canDisconnect) {
-    navItems.push({
-      name: 'DISCONNECT',
-      icon: LogOut,
-      onClick: () => {
-        if (clearCredentials()) window.location.reload()
-      },
-      badge: undefined,
-    })
-  }
+  navItems.push({
+    name: isEnvLocked ? 'CONNECTION' : 'DISCONNECT',
+    icon: LogOut,
+    onClick: () => {
+      if (isEnvLocked) {
+        setShowEnvInfo(true)
+      } else if (clearCredentials()) {
+        window.location.reload()
+      }
+    },
+    badge: undefined,
+  })
 
   return (
     <>
+      <AlertDialog open={showEnvInfo} onOpenChange={setShowEnvInfo}>
+        <AlertDialogContent className="border-neutral-800/50 bg-neutral-950/95 backdrop-blur-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-pixel tracking-wider text-sm">
+              ENV-LOCKED
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-neutral-400 text-sm leading-relaxed">
+              You're connected via <code className="text-neutral-200 bg-neutral-900 px-1.5 py-0.5 rounded text-xs">frontend/.env.local</code>.
+              To switch projects, update <code className="text-neutral-200 bg-neutral-900 px-1.5 py-0.5 rounded text-xs">VITE_SUPABASE_URL</code> and{' '}
+              <code className="text-neutral-200 bg-neutral-900 px-1.5 py-0.5 rounded text-xs">VITE_SUPABASE_PUBLISHABLE_KEY</code>{' '}
+              in that file, then restart the dev server.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900">
+              Got it
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* NAV trigger button */}
       <motion.button
         initial={{ opacity: 0, y: 20 }}
