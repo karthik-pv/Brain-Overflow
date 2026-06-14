@@ -61,9 +61,9 @@ console.log('============================================================\n')
 
 // 1. Install root deps
 if (!existsSync(resolve(ROOT, 'node_modules'))) {
-  run('npm install', '1/8 Install root deps')
+  run('npm install', '1/9 Install root deps')
 } else {
-  console.log('[1/8 Install root deps] Already installed — skipping')
+  console.log('[1/9 Install root deps] Already installed — skipping')
 }
 
 // 2. Link Supabase project
@@ -72,23 +72,24 @@ if (!process.env.SUPABASE_ACCESS_TOKEN) {
   console.warn('   Add it from https://supabase.com/dashboard/account/tokens')
   console.warn('   Without it, steps 2-5 (supabase CLI calls) will fail.\n')
 }
-run(`npx supabase link --project-ref ${SUPABASE_PROJECT_REF}`, '2/8 Link Supabase')
+run(`npx supabase link --project-ref ${SUPABASE_PROJECT_REF}`, '2/9 Link Supabase')
 
 // 3. Run migrations
-run('npx supabase db push', '3/8 Run migrations')
+run('npx supabase db push', '3/9 Run migrations')
 
 // 4. Deploy edge functions (no-verify-jwt — we use apikey header, not user JWTs)
-run('npx supabase functions deploy telegram-webhook --no-verify-jwt', '4/8 Deploy telegram-webhook')
-run('npx supabase functions deploy process-prompt   --no-verify-jwt', '4/8 Deploy process-prompt')
-run('npx supabase functions deploy start-run        --no-verify-jwt', '4/8 Deploy start-run')
+run('npx supabase functions deploy telegram-webhook  --no-verify-jwt', '4/9 Deploy telegram-webhook')
+run('npx supabase functions deploy process-prompt    --no-verify-jwt', '4/9 Deploy process-prompt')
+run('npx supabase functions deploy start-run         --no-verify-jwt', '4/9 Deploy start-run')
+run('npx supabase functions deploy manage-api-keys   --no-verify-jwt', '4/9 Deploy manage-api-keys')
 
 // 5. Set secrets in Supabase
-run(`npx supabase secrets set TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}`, '5/8 Set TELEGRAM_BOT_TOKEN secret')
-run(`npx supabase secrets set TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}`, '5/8 Set TELEGRAM_ALLOWED_USERS secret')
-run(`npx supabase secrets set ENCRYPTION_KEY=${ENCRYPTION_KEY}`, '5/8 Set ENCRYPTION_KEY secret')
+run(`npx supabase secrets set TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}`, '5/9 Set TELEGRAM_BOT_TOKEN secret')
+run(`npx supabase secrets set TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}`, '5/9 Set TELEGRAM_ALLOWED_USERS secret')
+run(`npx supabase secrets set ENCRYPTION_KEY=${ENCRYPTION_KEY}`, '5/9 Set ENCRYPTION_KEY secret')
 
 // 6. Configure Telegram webhook
-console.log('\n[6/8 Configure Telegram webhook]')
+console.log('\n[6/9 Configure Telegram webhook]')
 const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-webhook`
 const tgUrl      = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`
 const { ok, data } = await fetchJson(tgUrl, {
@@ -103,7 +104,7 @@ if (!ok || !data?.ok) {
 console.log(`  ✓ Webhook set to: ${webhookUrl}`)
 
 // 7. Seed default model
-console.log('\n[7/8 Seed default model]')
+console.log('\n[7/9 Seed default model]')
 const { createClient } = await import('@supabase/supabase-js')
 const sb = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
   global: { headers: { apikey: SUPABASE_SECRET_KEY } }
@@ -123,7 +124,7 @@ if (!existing || existing.length === 0) {
 }
 
 // 8. Verify
-console.log('\n[8/8 Verify]')
+console.log('\n[8/9 Verify]')
 const { data: models } = await sb.from('models').select('model_name')
 console.log(`  ✓ Models: ${models?.map(m => m.model_name).join(', ')}`)
 const { data: ideas }  = await sb.from('ideas').select('id')

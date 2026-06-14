@@ -24,14 +24,16 @@ Brain Overflow is a personal idea processing system. You talk to it (voice, text
 ```
 You (voice/Telegram/web)
   → Supabase (ideas, chat_messages, flows, prompts, models)
-    → Edge Function: telegram-webhook (receives messages)
-    → Edge Function: process-prompt  (runs AI chain per idea)
+    → Edge Function: telegram-webhook  (receives Telegram messages)
+    → Edge Function: process-prompt    (runs AI chain per idea)
+    → Edge Function: start-run         (triggers idea processing)
+    → Edge Function: manage-api-keys   (securely stores AI provider keys)
       → LLM (Fireworks / OpenAI / Anthropic)
     ← Results stored in Supabase
   ← React dashboard reads from Supabase
 ```
 
-No backend server. No Docker. No Kubernetes. Supabase handles the database and edge functions. The frontend is a static React app. The "backend" is two Deno edge functions deployed to Supabase.
+No backend server. No Docker. No Kubernetes. Supabase handles the database and edge functions. The frontend is a static React app. The "backend" is four Deno edge functions deployed to Supabase.
 
 ---
 
@@ -44,6 +46,8 @@ No backend server. No Docker. No Kubernetes. Supabase handles the database and e
 | Supabase account | Your database | [supabase.com](https://supabase.com) — free tier works |
 | Telegram Bot Token | The bot | [@BotFather](https://t.me/BotFather) on Telegram |
 | AI API Key | LLM calls | [Fireworks AI](https://fireworks.ai) (recommended) or OpenAI/Anthropic |
+
+> **New to Supabase?** The free tier is generous and perfect for this project. You only need one project.
 
 ---
 
@@ -64,15 +68,20 @@ cd backend  && npm install && cd ..
 2. Click **New Project** — give it a name, set a database password, pick a region close to you
 3. Wait for the project to provision (usually ~30 seconds)
 
-Once it's ready, you need two things from the project dashboard:
+Once it's ready, gather these from the project dashboard:
 
-- **Project URL** — found in Settings → API → Project URL (looks like `https://abcdefgh.supabase.co`)
-- **Project Ref** — the `abcdefgh` part of your URL
+| What you need | Where to find it | Looks like |
+|--------------|-----------------|-----------|
+| **Project Ref** | Settings → API → Project Ref | `abcdefghijkl` |
+| **Project URL** | Settings → API → Project URL | `https://abcdefghijkl.supabase.co` |
+| **Publishable key** | Settings → API → `sb_publishable_...` | `sb_publishable_abc123...` |
+| **Secret key** | Settings → API → `service_role` / `sb_secret_...` | `sb_secret_xyz789...` |
 
-You also need two API keys from Settings → API:
+Also create a **Personal Access Token** for the CLI:
+1. Go to [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens)
+2. Click **Generate Token**, name it "brain-overflow-cli", copy the token (`sbp_...`)
 
-- **Publishable key** (`sb_publishable_...`) — safe for the frontend, read-only-ish
-- **Secret key** (`sb_secret_...`) — full admin access, never put this in frontend code
+> **Save these values somewhere — you'll need them in the next step.**
 
 ### 3. Configure environment variables
 
@@ -84,20 +93,24 @@ cp .env.example .env
 Open `backend/.env` and fill in every field:
 
 ```bash
-# From Supabase Settings → API
-SUPABASE_PROJECT_REF=abcdefgh
-SUPABASE_URL=https://abcdefgh.supabase.co
-SUPABASE_SECRET_KEY=sb_secret_your_actual_key_here
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_actual_key_here
+# ── Supabase (from Settings → API) ──
+SUPABASE_PROJECT_REF=abcdefghijkl
+SUPABASE_URL=https://abcdefghijkl.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_your_actual_secret_key
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_actual_publishable_key
 
-# From @BotFather on Telegram
+# ── Supabase CLI auth (from supabase.com/dashboard/account/tokens) ──
+SUPABASE_ACCESS_TOKEN=sbp_your_personal_access_token
+
+# ── Encryption key (any 32+ char string — encrypts AI API keys in the DB) ──
+ENCRYPTION_KEY=your-super-secret-encryption-key-at-least-32-chars
+
+# ── Telegram (from @BotFather) ──
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 
-# From your AI provider (Fireworks, OpenAI, or Anthropic)
-AI_API_KEY=fw_your_fireworks_key_here
-
-# Your Telegram user ID(s) — only these users can talk to the bot
-# Find your ID: message @userinfobot on Telegram
+# ── Allowed Telegram users (numeric IDs from @userinfobot) ──
+# If you don't want Telegram, set at least one ID anyway — the bot won't work
+# without it, but the rest of the system will.
 TELEGRAM_ALLOWED_USERS=["123456789"]
 ```
 
@@ -143,9 +156,13 @@ This one command does **all** of the following:
 
 1. Installs backend dependencies
 2. Links your local project to your Supabase project
-3. Runs all database migrations (creates tables: `ideas`, `chat_messages`, `flows`, `prompts`, `models`, `telegram_chat_config`)
-4. Deploys the two edge functions (`telegram-webhook`, `process-prompt`) to Supabase
-5. Sets secrets in Supabase (your AI API key, Telegram bot token, allowed users)
+3. Runs all database migrations (creates all tables: `ideas`, `chat_messages`, `flows`, `prompts`, `models`, `idea_runs`, `api_keys`, `telegram_chat_config`, and more)
+4. Deploys all four edge functions to Supabase:
+   - `telegram-webhook` — receives Telegram messages
+   - `process-prompt` — runs the AI prompt chain for each idea
+   - `start-run` — triggers idea processing
+   - `manage-api-keys` — securely stores your AI provider keys
+5. Sets secrets in Supabase (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `ENCRYPTION_KEY`)
 6. Configures the Telegram webhook (so Telegram knows where to send messages)
 7. Seeds a default AI model (Llama 3.1 70B on Fireworks)
 8. Verifies everything works
@@ -264,11 +281,11 @@ brain-overflow/
 │   │   └── functions/        # Deno edge functions
 │   │       ├── telegram-webhook/   # Receives Telegram messages
 │   │       ├── process-prompt/     # Runs AI chain per idea
+│   │       ├── start-run/          # Triggers idea processing
+│   │       ├── manage-api-keys/    # Securely stores AI provider keys
 │   │       └── _shared/           # DB client, CORS, LLM providers
 │   ├── scripts/              # setup, seed, reset, sync-telegram-commands
 │   └── .env                  # All secrets (never commit this)
-│
-└── frontend-legacy/          # Old frontend, ignore this
 ```
 
 ---
@@ -320,6 +337,11 @@ Re-run `npm run setup` — it re-configures the webhook. You can also check the 
 
 **Edge function deployment fails**
 Make sure you have the Supabase CLI installed (`npm install -g supabase`) and you're logged in (`supabase login`). The CLI needs to link to your project — `setup.mjs` handles this, but if it fails, try `npx supabase link --project-ref <your-ref>` manually.
+
+If you see `toomanyrequests: Rate exceeded`, Docker is rate-limiting image pulls. Run `docker login` to authenticate (gives higher limits) or wait a minute and retry — the limits reset per-IP every 6 hours.
+
+**"Save" button on Models page does nothing / API key not saved**
+The `manage-api-keys` edge function was not deployed. Re-run `npm run setup` — it's now included in the deployment step. Make sure `ENCRYPTION_KEY` is set in your `backend/.env`.
 
 ---
 
