@@ -487,27 +487,8 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     }
     log(ctx, 'Chain complete — idea completed')
   } else {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-
     const nextIndex = (prompt_index ?? 0) + 1
-    const interStepDelayMs = model.provider === 'gemini' ? 3000 : 0
-
-    const fireNext = () => {
-      fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea_id, prompt_index: nextIndex, run_id, flow_id }),
-      }).catch(() => {})
-    }
-
-    if (interStepDelayMs > 0) {
-      setTimeout(fireNext, interStepDelayMs)
-    } else {
-      fireNext()
-    }
-
-    log(ctx, `Fired process-prompt(${nextIndex})`)
+    log(ctx, `Chain continues via DB trigger — next prompt ${nextIndex} will fire automatically`)
   }
 }
 
