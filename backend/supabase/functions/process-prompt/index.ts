@@ -490,27 +490,27 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-    // Add a brief inter-step pause for Gemini (free tier = 10-30 RPM).
-    // Each LLM call already takes 5-20s, but back-to-back chain invocations
-    // can still burst past the per-minute quota on a 4-step flow.
     const interStepDelayMs = model.provider === 'gemini' ? 3000 : 0
+    const nextIndex = (prompt_index ?? 0) + 1
 
-    const nextCall = (interStepDelayMs > 0
-      ? new Promise(res => setTimeout(res, interStepDelayMs))
-      : Promise.resolve()
-    ).then(() => fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idea_id, prompt_index: (prompt_index ?? 0) + 1, run_id, flow_id }),
-    })).then(r => {
-      if (!r.ok) r.text().then(t =>
-        logError(ctx, new Error(`Next invoke failed: ${r.status} ${t}`))
-      )
-    }).catch(err => logError(ctx, err, 'Next chain fetch threw'))
-
-    // @ts-ignore
-    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(nextCall)
-    log(ctx, `Fired process-prompt(${(prompt_index ?? 0) + 1}) asynchronously${interStepDelayMs > 0 ? ` (after ${interStepDelayMs}ms inter-step delay)` : ''}`)
+    try {
+      if (interStepDelayMs > 0) {
+        await new Promise(res => setTimeout(res, interStepDelayMs))
+      }
+      const res = await fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idea_id, prompt_index: nextIndex, run_id, flow_id }),
+      })
+      if (!res.ok) {
+        const body = await res.text()
+        logError(ctx, new Error(`Next invoke failed: ${res.status} ${body}`))
+      } else {
+        log(ctx, `Fired process-prompt(${nextIndex}) successfully`)
+      }
+    } catch (err) {
+      logError(ctx, err, 'Next chain fetch threw')
+    }
   }
 }
 
