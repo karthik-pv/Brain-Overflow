@@ -490,27 +490,24 @@ async function runPrompt(idea_id: string, prompt_index?: number, custom_prompt_i
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-    const interStepDelayMs = model.provider === 'gemini' ? 3000 : 0
     const nextIndex = (prompt_index ?? 0) + 1
+    const interStepDelayMs = model.provider === 'gemini' ? 3000 : 0
 
-    try {
-      if (interStepDelayMs > 0) {
-        await new Promise(res => setTimeout(res, interStepDelayMs))
-      }
-      const res = await fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
+    const fireNext = () => {
+      fetch(`${supabaseUrl}/functions/v1/process-prompt`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ idea_id, prompt_index: nextIndex, run_id, flow_id }),
-      })
-      if (!res.ok) {
-        const body = await res.text()
-        logError(ctx, new Error(`Next invoke failed: ${res.status} ${body}`))
-      } else {
-        log(ctx, `Fired process-prompt(${nextIndex}) successfully`)
-      }
-    } catch (err) {
-      logError(ctx, err, 'Next chain fetch threw')
+      }).catch(() => {})
     }
+
+    if (interStepDelayMs > 0) {
+      setTimeout(fireNext, interStepDelayMs)
+    } else {
+      fireNext()
+    }
+
+    log(ctx, `Fired process-prompt(${nextIndex})`)
   }
 }
 
