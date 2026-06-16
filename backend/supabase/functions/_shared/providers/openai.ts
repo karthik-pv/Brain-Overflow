@@ -18,7 +18,9 @@ export async function generateCompletion(params: {
       model:       params.modelId,
       messages:    params.messages,
       temperature: params.temperature,
-      max_tokens:  params.maxTokens,
+      ...(params.modelId.includes('gpt-5') || params.modelId.startsWith('o')
+        ? { max_completion_tokens: params.maxTokens }
+        : { max_tokens: params.maxTokens }),
     }),
   })
   if (!resp.ok) throw new Error(`OpenAI error ${resp.status}: ${await resp.text()}`)
